@@ -32,7 +32,7 @@ Dashboard com receitas, despesas, saldo, pendências, evolução semestral e lan
 4. Cadastrar cada usuário usando o endpoint administrativo protegido (`POST /api/admin/users`).
 5. Acessar o site com o nome de usuário e a senha individual.
 
-**Sem segredo o Worker bloqueia a API real.** O modo de demonstração não grava nada no D1. Não existe deploy automático configurado. `migrations/0001_init.sql` replica a tabela criada e pode ser reaplicado com segurança no mesmo banco se necessário. Para testar: `npm test`, `node --check public/js/app.js` e `node --check src/worker.js`.
+**Sem segredo o Worker bloqueia a API real.** O modo de demonstração não grava nada no D1. Não existe deploy automático configurado. As migrations representam etapas históricas do esquema; **não as reaplique em produção com dados reais sem verificar o estado atual e fazer backup**, especialmente `0003_registros_usuarios.sql`. Para testar: `npm test`, `node --check public/js/app.js` e `node --check src/worker.js`.
 
 Consulte [AGENTS.md](AGENTS.md).
 ## Tabela de usuários
