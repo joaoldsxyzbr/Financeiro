@@ -2,6 +2,11 @@
 -- O novo usuario_id obrigatório relaciona cada lançamento ao usuário proprietário.
 -- Esta migração de recriação requer tabela registros vazia. Para bancos com
 -- lançamentos existentes, migrar associando cada linha a um usuário antes da troca.
+-- Guarda de segurança: aborta ANTES do DROP se houver registros.
+-- A tabela temporária de guarda será descartada numa execução bem-sucedida.
+CREATE TABLE IF NOT EXISTS __financeiro_guard (total INTEGER NOT NULL CHECK(total=0));
+INSERT INTO __financeiro_guard SELECT COUNT(*) FROM registros;
+DROP TABLE __financeiro_guard;
 DROP TABLE registros;
 CREATE TABLE registros (
   data TEXT NOT NULL CHECK (length(data)=7 AND data GLOB '[12][0-9][0-9][0-9]-[01][0-9]' AND CAST(substr(data,6,2) AS INTEGER) BETWEEN 1 AND 12),

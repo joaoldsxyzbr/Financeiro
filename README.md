@@ -57,6 +57,6 @@ A tabela `registros` possui agora `usuario_id INTEGER NOT NULL REFERENCES usuari
 - O cadastro público está desabilitado para evitar contas desconhecidas. Para registrar um usuário, use por exemplo um cliente HTTP administrativo protegido; não compartilhe credenciais em conversas ou repositórios.
 - O sistema não possui recuperação de senha, autenticação multifator ou limitação de tentativas de login embutida. Configure rate limiting na Cloudflare antes de uso público.
 - Não é necessário passar `usuario_id` do navegador: ele é sempre obtido da sessão. A troca manual de IDs de lançamentos não permite acessar registros de outra conta.
-- A migração `0003_registros_usuarios.sql` foi aplicada enquanto `registros` estava vazia. **Não reaplique esse arquivo destrutivo em banco já populado.**
+- A migração `0003_registros_usuarios.sql` foi aplicada enquanto `registros` estava vazia. A versão no repositório possui proteção para bloquear execução se houver registros. Faça backup antes de migrações.
 
 **Status:** esquema do D1 remoto atualizado; código do site e Worker no GitHub; novo Worker ainda precisa ser publicado. Os usuários são criados separadamente por administrador, não foram cadastrados automaticamente.
