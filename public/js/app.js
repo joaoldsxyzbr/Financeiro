@@ -13,10 +13,7 @@ const plusMonths = (key, offset) => {
   const [year, month] = key.split("-").map(Number);
   return monthKey(new Date(year, month - 1 + offset, 1));
 };
-const formatDate = (iso) => {
-  const [year, month, day] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(year, month - 1, day));
-};
+const formatDate = (iso) => monthText(iso);
 const categories = {
   expense: ["Moradia", "Alimentação", "Transporte", "Saúde", "Educação", "Cartão", "Assinaturas", "Lazer", "Compras", "Outros"],
   income: ["Salário", "Renda extra", "Reembolso", "Investimentos", "Presentes", "Outros"]
@@ -60,11 +57,7 @@ function parseMoney(value) {
   return cents;
 }
 
-function dateForMonth(key) {
-  const [year, month] = key.split("-").map(Number);
-  const day = Math.min(new Date().getDate(), new Date(year, month, 0).getDate());
-  return key + "-" + String(day).padStart(2, "0");
-}
+function dateForMonth(key) { return key; }
 
 function createDemoRecords() {
   const items = [];
@@ -78,11 +71,10 @@ function createDemoRecords() {
   ];
   for (let delta = -6; delta <= 2; delta++) {
     const key = plusMonths(nowKey, delta);
-    const lastDay = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate();
     for (const [index, example] of examples.entries()) {
       const [description, type, category, base, day] = example;
       const amount = base + (delta + 6) * (type === "income" ? 1150 : (index + 1) * 95);
-      const date = key + "-" + String(Math.min(day, lastDay)).padStart(2, "0");
+      const date = key;
       items.push({
         id: "demo-" + delta + "-" + index,
         description,
@@ -200,9 +192,6 @@ function renderRows(rows) {
     const tr = el("tr");
     const name = el("td");
     name.append(el("span", "item-name", row.description));
-    if (row.installment_total && row.installment_total > 1) {
-      name.append(el("small", "item-sub", "Parcela " + row.installment_number + "/" + row.installment_total));
-    }
     const date = el("td", "", formatDate(row.date));
     const category = el("td", "", row.category);
     const statusCell = el("td");
@@ -319,68 +308,44 @@ function openTransaction(row = null) {
   byId("field-description").value = row ? row.description : "";
   byId("field-amount").value = row ? (row.amount_cents / 100).toFixed(2).replace(".", ",") : "";
   byId("field-date").value = row ? row.date : dateForMonth(state.month);
-  byId("field-notes").value = row ? row.notes || "" : "";
-  byId("field-installments").value = "1";
-  byId("field-installments").disabled = Boolean(row);
-  byId("installments-hint").hidden = true;
   byId("transaction-dialog").showModal();
   byId("field-description").focus();
 }
 
-function addCalendarMonths(date, count) {
-  const [year, month, day] = date.split("-").map(Number);
-  const base = new Date(year, month - 1 + count, 1);
-  const last = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
-  return monthKey(base) + "-" + String(Math.min(day, last)).padStart(2, "0");
-}
-
 async function saveTransaction(event) {
   event.preventDefault();
-  const saveButton = byId("save-button");
+  const button = byId("save-button");
   try {
-    const payload = {
+    const data = {
       type: byId("field-type").value,
       status: byId("field-status").value,
       description: byId("field-description").value.trim(),
       amount_cents: parseMoney(byId("field-amount").value),
       date: byId("field-date").value,
-      category: byId("field-category").value,
-      notes: byId("field-notes").value.trim(),
-      installments: state.editing ? 1 : Number(byId("field-installments").value)
+      category: byId("field-category").value
     };
-    if (!payload.description || payload.description.length > 100) throw new Error("Informe uma descrição de até 100 caracteres.");
-    if (!Number.isInteger(payload.installments) || payload.installments < 1 || payload.installments > 24) throw new Error("Escolha entre 1 e 24 parcelas.");
-    saveButton.disabled = true;
+    if (!data.description || data.description.length > 100) throw new Error("Informe uma descrição válida.");
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(data.date)) throw new Error("Informe apenas mês e ano.");
+    button.disabled = true;
     if (state.mode === "demo") {
       if (state.editing) {
         const row = state.records.find((item) => item.id === state.editing);
-        Object.assign(row, payload);
-      } else {
-        const group = payload.installments > 1 ? crypto.randomUUID() : null;
-        for (let i = 0; i < payload.installments; i++) {
-          state.records.push({
-            ...payload, id: crypto.randomUUID(), date: addCalendarMonths(payload.date, i),
-            installment_group: group, installment_number: group ? i + 1 : null,
-            installment_total: group ? payload.installments : null
-          });
-        }
-      }
+        if (!row) throw new Error("Lançamento não encontrado.");
+        Object.assign(row, data);
+      } else state.records.push({ ...data, id: crypto.randomUUID() });
     } else {
-      const editing = state.editing;
-      await request(editing ? "transactions/" + encodeURIComponent(editing) : "transactions", {
-        method: editing ? "PUT" : "POST",
-        body: JSON.stringify(payload)
+      await request(state.editing ? "transactions/" + encodeURIComponent(state.editing) : "transactions", {
+        method: state.editing ? "PUT" : "POST",
+        body: JSON.stringify(data)
       });
     }
-    state.month = payload.date.slice(0, 7);
+    state.month = data.date;
     byId("transaction-dialog").close();
     await reload();
     showToast("Lançamento salvo com sucesso.");
   } catch (error) {
     showToast(error.message, true);
-  } finally {
-    saveButton.disabled = false;
-  }
+  } finally { button.disabled = false; }
 }
 
 async function changeStatus(row) {
@@ -419,9 +384,6 @@ function bindEvents() {
   byId("type-filter").addEventListener("change", () => renderRows(currentRows()));
   byId("status-filter").addEventListener("change", () => renderRows(currentRows()));
   byId("field-type").addEventListener("change", (event) => updateCategories(event.target.value));
-  byId("field-installments").addEventListener("input", (event) => {
-    byId("installments-hint").hidden = Number(event.target.value) <= 1;
-  });
   byId("transaction-form").addEventListener("submit", saveTransaction);
   byId("auth-form").addEventListener("submit", async (event) => {
     event.preventDefault();

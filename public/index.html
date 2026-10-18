@@ -81,10 +81,10 @@
         <div class="filters">
           <label class="search-field"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Buscar lançamento" aria-label="Buscar lançamento" autocomplete="off"></label>
           <select id="type-filter" aria-label="Filtrar por tipo"><option value="all">Todos os tipos</option><option value="income">Receitas</option><option value="expense">Despesas</option></select>
-          <select id="status-filter" aria-label="Filtrar por situação"><option value="all">Todas as situações</option><option value="paid">Pago/recebido</option><option value="pending">Pendente</option></select>
+          <select id="status-filter" aria-label="Filtrar por situação"><option value="all">Todas as situações</option><option value="paid">Pago</option><option value="pending">Pendente</option></select>
         </div>
         <div class="table-scroll">
-          <table><thead><tr><th>Descrição</th><th>Data</th><th>Categoria</th><th>Situação</th><th class="amount-col">Valor</th><th class="actions-col">Ações</th></tr></thead><tbody id="transactions-body"></tbody></table>
+          <table><thead><tr><th>Descrição</th><th>Mês/ano</th><th>Categoria</th><th>Situação</th><th class="amount-col">Valor</th><th class="actions-col">Ações</th></tr></thead><tbody id="transactions-body"></tbody></table>
         </div>
         <div class="empty-state" id="empty-state" hidden><span aria-hidden="true">◇</span><strong>Nenhum lançamento encontrado</strong><p>Adicione um registro ou ajuste os filtros.</p><button type="button" class="subtle-button" data-add>Adicionar lançamento</button></div>
         <div class="table-footer"><span id="result-count">0 lançamentos</span></div>
@@ -99,10 +99,8 @@
       <div class="modal-body">
         <div class="form-row"><label>Tipo<select id="field-type" required><option value="expense">Despesa</option><option value="income">Receita</option></select></label><label>Situação<select id="field-status" required><option value="pending">Pendente</option><option value="paid">Pago/recebido</option></select></label></div>
         <label>Descrição<input id="field-description" type="text" maxlength="100" placeholder="Ex.: Mercado" required autocomplete="off"></label>
-        <div class="form-row"><label id="amount-label">Valor (R$)<input id="field-amount" type="text" inputmode="decimal" placeholder="0,00" required autocomplete="off"></label><label>Data<input id="field-date" type="date" required></label></div>
-        <div class="form-row"><label>Categoria<select id="field-category" required></select></label><label>Parcelas (mensais)<input id="field-installments" type="number" min="1" max="24" step="1" value="1"></label></div>
-        <label>Observações (opcional)<textarea id="field-notes" maxlength="300" rows="2" placeholder="Informações adicionais"></textarea></label>
-        <p class="form-hint" id="installments-hint" hidden>O valor informado será repetido em cada parcela mensal.</p>
+        <div class="form-row"><label id="amount-label">Valor (R$)<input id="field-amount" type="text" inputmode="decimal" placeholder="0,00" required autocomplete="off"></label><label>Mês/ano<input id="field-date" type="month" required></label></div>
+        <label>Categoria<select id="field-category" required></select></label>
       </div>
       <div class="modal-footer"><button type="button" class="subtle-button" data-close="transaction-dialog">Cancelar</button><button type="submit" class="primary-button" id="save-button">Salvar lançamento</button></div>
     </form>
