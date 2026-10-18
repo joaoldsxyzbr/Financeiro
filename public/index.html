@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fb">
+  <meta name="description" content="Financeiro: controle pessoal de receitas, despesas e planejamento mensal.">
+  <title>Financeiro — Meu controle</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegação principal">
+      <a class="brand" href="/" aria-label="Financeiro, início">
+        <span class="brand-symbol" aria-hidden="true">F</span>
+        <span><strong>Financeiro</strong><small>Controle pessoal</small></span>
+      </a>
+      <p class="nav-label">MENU</p>
+      <nav class="nav" aria-label="Seções">
+        <button class="nav-item active" type="button" data-view-button="dashboard" aria-current="page"><span aria-hidden="true">▦</span> Visão geral</button>
+        <button class="nav-item" type="button" data-view-button="transactions"><span aria-hidden="true">⇄</span> Lançamentos</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-note"><span class="status-dot"></span><span id="sidebar-mode">Verificando conexão…</span></div>
+        <p>Simples, claro e sob controle.</p>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">MEU PAINEL FINANCEIRO</p>
+          <h1 id="page-title">Visão geral</h1>
+          <p class="subtitle">Organize seu dinheiro com tranquilidade.</p>
+        </div>
+        <button class="primary-button top-add" type="button" data-add><span aria-hidden="true">＋</span> Novo lançamento</button>
+      </header>
+
+      <div class="notice" id="mode-notice" role="status">Preparando seu painel…</div>
+      <section class="period-bar" aria-label="Período dos lançamentos">
+        <div class="period-heading"><span class="period-icon" aria-hidden="true">▤</span>
+          <div><small>Período selecionado</small><strong id="month-label">—</strong></div>
+        </div>
+        <div class="period-actions">
+          <button type="button" class="icon-button" id="prev-month" aria-label="Mês anterior">‹</button>
+          <input type="month" id="month-picker" aria-label="Selecionar mês e ano">
+          <button type="button" class="icon-button" id="next-month" aria-label="Próximo mês">›</button>
+          <button type="button" class="subtle-button" id="today-month">Este mês</button>
+        </div>
+      </section>
+
+      <section class="dashboard-only" aria-labelledby="summary-title">
+        <div class="section-heading"><h2 id="summary-title">Resumo do mês</h2><span class="muted">Valores previstos, incluindo pendências</span></div>
+        <div class="metrics">
+          <article class="metric"><div class="metric-top"><span>Receitas</span><span class="metric-icon income" aria-hidden="true">↗</span></div><strong id="metric-income">R$ 0,00</strong><small>Entradas do período</small></article>
+          <article class="metric"><div class="metric-top"><span>Despesas</span><span class="metric-icon expense" aria-hidden="true">↘</span></div><strong id="metric-expense">R$ 0,00</strong><small>Saídas do período</small></article>
+          <article class="metric metric-feature"><div class="metric-top"><span>Saldo previsto</span><span class="metric-icon balance" aria-hidden="true">◎</span></div><strong id="metric-balance">R$ 0,00</strong><small>Receitas menos despesas</small></article>
+          <article class="metric"><div class="metric-top"><span>Despesas pendentes</span><span class="metric-icon pending" aria-hidden="true">◷</span></div><strong id="metric-pending">R$ 0,00</strong><small>Ainda não pagas</small></article>
+        </div>
+        <div class="analysis-grid">
+          <article class="panel trend-panel">
+            <div class="panel-heading"><div><h2>Evolução financeira</h2><p>Últimos seis meses até o período selecionado</p></div></div>
+            <div class="chart-legend"><span><i class="legend-income"></i> Receitas</span><span><i class="legend-expense"></i> Despesas</span></div>
+            <div id="trend-chart" class="trend-chart" role="img" aria-label="Comparação de receitas e despesas dos últimos seis meses"></div>
+          </article>
+          <article class="panel insight-panel">
+            <div class="panel-heading"><div><h2>Visão rápida</h2><p>Como está o mês</p></div></div>
+            <div class="insight-highlight"><span>Saldo já realizado</span><strong id="metric-realized">R$ 0,00</strong><small>Considera apenas lançamentos pagos/recebidos</small></div>
+            <div class="insight-line"><span>Lançamentos do mês</span><strong id="metric-count">0</strong></div>
+            <div class="insight-line"><span>Pendências no mês</span><strong id="metric-pending-count">0</strong></div>
+            <div class="insight-line"><span>Receitas a receber</span><strong id="metric-receivable">R$ 0,00</strong></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel transactions-panel" aria-labelledby="transactions-title">
+        <div class="panel-heading transactions-heading">
+          <div><h2 id="transactions-title">Lançamentos do mês</h2><p id="transactions-description">Acompanhe seus registros e pagamentos</p></div>
+          <button class="subtle-button" type="button" data-add><span aria-hidden="true">＋</span> Adicionar</button>
+        </div>
+        <div class="filters">
+          <label class="search-field"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Buscar lançamento" aria-label="Buscar lançamento" autocomplete="off"></label>
+          <select id="type-filter" aria-label="Filtrar por tipo"><option value="all">Todos os tipos</option><option value="income">Receitas</option><option value="expense">Despesas</option></select>
+          <select id="status-filter" aria-label="Filtrar por situação"><option value="all">Todas as situações</option><option value="paid">Pago/recebido</option><option value="pending">Pendente</option></select>
+        </div>
+        <div class="table-scroll">
+          <table><thead><tr><th>Descrição</th><th>Data</th><th>Categoria</th><th>Situação</th><th class="amount-col">Valor</th><th class="actions-col">Ações</th></tr></thead><tbody id="transactions-body"></tbody></table>
+        </div>
+        <div class="empty-state" id="empty-state" hidden><span aria-hidden="true">◇</span><strong>Nenhum lançamento encontrado</strong><p>Adicione um registro ou ajuste os filtros.</p><button type="button" class="subtle-button" data-add>Adicionar lançamento</button></div>
+        <div class="table-footer"><span id="result-count">0 lançamentos</span></div>
+      </section>
+      <footer class="footer">Financeiro · Seus números, com mais clareza.</footer>
+    </main>
+  </div>
+
+  <dialog id="transaction-dialog" class="modal">
+    <form id="transaction-form">
+      <div class="modal-header"><div><p class="eyebrow">ORGANIZE SEUS NÚMEROS</p><h2 id="dialog-title">Novo lançamento</h2></div><button class="close-button" type="button" data-close="transaction-dialog" aria-label="Fechar">×</button></div>
+      <div class="modal-body">
+        <div class="form-row"><label>Tipo<select id="field-type" required><option value="expense">Despesa</option><option value="income">Receita</option></select></label><label>Situação<select id="field-status" required><option value="pending">Pendente</option><option value="paid">Pago/recebido</option></select></label></div>
+        <label>Descrição<input id="field-description" type="text" maxlength="100" placeholder="Ex.: Mercado" required autocomplete="off"></label>
+        <div class="form-row"><label id="amount-label">Valor (R$)<input id="field-amount" type="text" inputmode="decimal" placeholder="0,00" required autocomplete="off"></label><label>Data<input id="field-date" type="date" required></label></div>
+        <div class="form-row"><label>Categoria<select id="field-category" required></select></label><label>Parcelas (mensais)<input id="field-installments" type="number" min="1" max="24" step="1" value="1"></label></div>
+        <label>Observações (opcional)<textarea id="field-notes" maxlength="300" rows="2" placeholder="Informações adicionais"></textarea></label>
+        <p class="form-hint" id="installments-hint" hidden>O valor informado será repetido em cada parcela mensal.</p>
+      </div>
+      <div class="modal-footer"><button type="button" class="subtle-button" data-close="transaction-dialog">Cancelar</button><button type="submit" class="primary-button" id="save-button">Salvar lançamento</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="auth-dialog" class="modal auth-modal">
+    <form id="auth-form">
+      <div class="modal-header"><div><p class="eyebrow">ACESSO PROTEGIDO</p><h2>Conectar ao Financeiro</h2></div></div>
+      <div class="modal-body"><p>Informe a chave de acesso privada configurada no Cloudflare Worker. Ela não será salva no navegador.</p><label>Chave de acesso<input id="auth-token" type="password" minlength="16" required autocomplete="off" placeholder="Sua chave privada"></label><p class="form-hint" id="auth-error" role="alert"></p></div>
+      <div class="modal-footer"><button type="submit" class="primary-button">Entrar</button></div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
