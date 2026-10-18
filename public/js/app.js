@@ -21,6 +21,7 @@ const categories = {
 const state = {
   mode: "checking",
   token: "",
+  user: null,
   month: plusMonths(monthKey(new Date()), 1),
   view: "dashboard",
   records: [],
@@ -96,10 +97,12 @@ function updateMode() {
     notice.className = "notice warning";
     notice.textContent = "Modo demonstração — valores fictícios. Alterações são temporárias e não são salvas. Nenhum D1 está conectado.";
     byId("sidebar-mode").textContent = "Demonstração (sem D1)";
+    byId("logout-button").hidden = true;
   } else if (state.mode === "live") {
     notice.className = "notice";
     notice.textContent = "Dados privados no novo D1 do Financeiro. A chave de acesso permanece apenas nesta aba.";
-    byId("sidebar-mode").textContent = state.token ? "D1 conectado" : "Acesso protegido";
+    byId("sidebar-mode").textContent = state.user ? "Conta: " + state.user.usuario : "Acesso protegido";
+    byId("logout-button").hidden = !state.user;
   }
 }
 
@@ -249,7 +252,10 @@ async function request(path, options = {}) {
   if (!response.ok) {
     if (response.status === 401) {
       state.token = "";
-      updateMode();
+      state.user = null;
+      state.records = [];
+      state.trends = [];
+      render();
       if (!byId("auth-dialog").open) byId("auth-dialog").showModal();
     }
     throw new Error(result.error || "Não foi possível comunicar com o servidor.");
@@ -387,20 +393,40 @@ function bindEvents() {
   byId("status-filter").addEventListener("change", () => renderRows(currentRows()));
   byId("field-type").addEventListener("change", (event) => updateCategories(event.target.value));
   byId("transaction-form").addEventListener("submit", saveTransaction);
+  byId("logout-button").addEventListener("click", () => {
+    state.token = "";
+    state.user = null;
+    state.records = [];
+    state.trends = [];
+    render();
+    byId("auth-dialog").showModal();
+  });
   byId("auth-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const token = byId("auth-token").value.trim();
-    state.token = token;
     byId("auth-error").textContent = "";
+    const submit = byId("auth-form").querySelector('[type="submit"]');
+    submit.disabled = true;
     try {
+      const result = await request("login", {
+        method: "POST",
+        body: JSON.stringify({
+          usuario: byId("auth-username").value.trim(),
+          senha: byId("auth-password").value
+        })
+      });
+      state.token = result.token;
+      state.user = result.user;
+      byId("auth-password").value = "";
       await reload();
-      byId("auth-token").value = "";
       byId("auth-dialog").close();
       updateMode();
-      showToast("Acesso autorizado.");
+      showToast("Bem-vindo ao Financeiro!");
     } catch (error) {
       state.token = "";
+      state.user = null;
       byId("auth-error").textContent = error.message;
+    } finally {
+      submit.disabled = false;
     }
   });
 }

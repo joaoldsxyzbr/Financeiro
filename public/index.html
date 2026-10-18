@@ -23,6 +23,7 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="sidebar-note"><span class="status-dot"></span><span id="sidebar-mode">Verificando conexão…</span></div>
+        <button type="button" class="subtle-button" id="logout-button" hidden>Sair da conta</button>
         <p>Simples, claro e sob controle.</p>
       </div>
     </aside>
@@ -108,8 +109,11 @@
 
   <dialog id="auth-dialog" class="modal auth-modal">
     <form id="auth-form">
-      <div class="modal-header"><div><p class="eyebrow">ACESSO PROTEGIDO</p><h2>Conectar ao Financeiro</h2></div></div>
-      <div class="modal-body"><p>Informe a chave de acesso privada configurada no Cloudflare Worker. Ela não será salva no navegador.</p><label>Chave de acesso<input id="auth-token" type="password" minlength="16" required autocomplete="off" placeholder="Sua chave privada"></label><p class="form-hint" id="auth-error" role="alert"></p></div>
+      <div class="modal-header"><div><p class="eyebrow">ACESSO PROTEGIDO</p><h2>Entrar no Financeiro</h2></div></div>
+      <div class="modal-body"><p>Cada usuário acessa somente seus próprios lançamentos financeiros.</p>
+        <label>Usuário<input id="auth-username" type="text" minlength="3" maxlength="50" pattern="[a-zA-Z0-9._-]{3,50}" required autocomplete="username" placeholder="Seu usuário"></label>
+        <label>Senha<input id="auth-password" type="password" required autocomplete="current-password" placeholder="Sua senha"></label>
+        <p class="form-hint" id="auth-error" role="alert"></p></div>
       <div class="modal-footer"><button type="submit" class="primary-button">Entrar</button></div>
     </form>
   </dialog>
