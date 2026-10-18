@@ -60,3 +60,6 @@ A tabela `registros` possui agora `usuario_id INTEGER NOT NULL REFERENCES usuari
 - A migração `0003_registros_usuarios.sql` foi aplicada enquanto `registros` estava vazia. A versão no repositório possui proteção para bloquear execução se houver registros. Faça backup antes de migrações.
 
 **Status:** esquema do D1 remoto atualizado; código do site e Worker no GitHub; novo Worker ainda precisa ser publicado. Os usuários são criados separadamente por administrador, não foram cadastrados automaticamente.
+## Aparência
+
+O Financeiro utiliza **modo escuro por padrão** em todo o site, inclusive formulários, pop-ups e telas móveis. A paleta combina fundo azul-marinho/grafite, painéis escuros, textos claros e verde como destaque. A aparência não depende do tema do sistema operacional.
