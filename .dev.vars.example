@@ -1,0 +1,3 @@
+# Exemplo apenas. Crie seu próprio .dev.vars (não commitado).
+# A credencial deve ser aleatória, exclusiva e ter pelo menos 32 caracteres.
+FINANCEIRO_API_TOKEN="SUBSTITUA_POR_UMA_CHAVE_ALEATORIA_COM_32_OU_MAIS_CARACTERES"
