@@ -25,8 +25,8 @@ function normalizeTransaction(data) {
   if (data.type !== "income" && data.type !== "expense") throw error(400,"Tipo inválido.");
   if (data.status !== "pending" && data.status !== "paid") throw error(400,"Status inválido.");
   return {
-    data:data.date, descricao,
-    valor: data.type === "income" ? data.amount_cents : -data.amount_cents,
+    data:data.date, tipo: data.type === "income" ? "entrada" : "saida", descricao,
+    valor: data.amount_cents,
     categoria, status: data.status === "paid" ? "pago" : "pendente"
   };
 }
@@ -52,8 +52,8 @@ function requiredMonth(url) {
   if (!validMonth(value))throw error(400,"Mês inválido. Use AAAA-MM.");
   return value;
 }
-// rowid é implícito do SQLite; a tabela possui somente cinco colunas.
-const select = "SELECT rowid AS id, data AS date, descricao AS description, CASE WHEN valor>0 THEN 'income' ELSE 'expense' END AS type, ABS(valor) AS amount_cents, categoria AS category, CASE WHEN status='pago' THEN 'paid' ELSE 'pending' END AS status FROM registros";
+// rowid é identificador implícito do SQLite, não uma coluna adicional.
+const select = "SELECT rowid AS id, data AS date, descricao AS description, CASE WHEN tipo='entrada' THEN 'income' ELSE 'expense' END AS type, valor AS amount_cents, categoria AS category, CASE WHEN status='pago' THEN 'paid' ELSE 'pending' END AS status FROM registros";
 async function list(db,month) {
   const r=await db.prepare(select+" WHERE data=? ORDER BY rowid DESC LIMIT 5001").bind(month).all();
   if(r.results.length>5000)throw error(409,"Limite mensal de 5.000 registros atingido.");
@@ -61,7 +61,7 @@ async function list(db,month) {
 }
 async function trend(db,month) {
   const begin=shiftMonth(month,-5);
-  const r=await db.prepare("SELECT data AS month, SUM(CASE WHEN valor>0 THEN valor ELSE 0 END) AS income_cents, SUM(CASE WHEN valor<0 THEN -valor ELSE 0 END) AS expense_cents FROM registros WHERE data>=? AND data<=? GROUP BY data").bind(begin,month).all();
+  const r=await db.prepare("SELECT data AS month, SUM(CASE WHEN tipo='entrada' THEN valor ELSE 0 END) AS income_cents, SUM(CASE WHEN tipo='saida' THEN valor ELSE 0 END) AS expense_cents FROM registros WHERE data>=? AND data<=? GROUP BY data").bind(begin,month).all();
   const months=Array.from({length:6},(_,i)=>({month:shiftMonth(begin,i),income_cents:0,expense_cents:0}));
   const map=new Map(months.map(item=>[item.month,item]));
   for(const item of r.results){const m=map.get(item.month);if(m){m.income_cents=item.income_cents||0;m.expense_cents=item.expense_cents||0;}}
@@ -69,12 +69,12 @@ async function trend(db,month) {
 }
 async function create(db,request) {
   const x=normalizeTransaction(await parseRequest(request));
-  const r=await db.prepare("INSERT INTO registros (data,descricao,valor,categoria,status) VALUES (?,?,?,?,?)").bind(x.data,x.descricao,x.valor,x.categoria,x.status).run();
+  const r=await db.prepare("INSERT INTO registros (data,tipo,descricao,valor,categoria,status) VALUES (?,?,?,?,?,?)").bind(x.data,x.tipo,x.descricao,x.valor,x.categoria,x.status).run();
   return json({created:true,id:r.meta.last_row_id},201);
 }
 async function update(db,request,id) {
   const x=normalizeTransaction(await parseRequest(request));
-  const r=await db.prepare("UPDATE registros SET data=?,descricao=?,valor=?,categoria=?,status=? WHERE rowid=?").bind(x.data,x.descricao,x.valor,x.categoria,x.status,id).run();
+  const r=await db.prepare("UPDATE registros SET data=?,tipo=?,descricao=?,valor=?,categoria=?,status=? WHERE rowid=?").bind(x.data,x.tipo,x.descricao,x.valor,x.categoria,x.status,id).run();
   if(!r.meta?.changes)throw error(404,"Registro não encontrado.");
   return json({updated:true});
 }

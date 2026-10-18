@@ -83,9 +83,7 @@ function createDemoRecords() {
         amount_cents: amount,
         date,
         status: key < nowKey || (key === nowKey && day <= new Date().getDate()) ? "paid" : "pending",
-        notes: "",
-        installment_number: null,
-        installment_total: null
+
       });
     }
   }
@@ -184,7 +182,7 @@ function renderRows(rows) {
   const filtered = rows.filter((row) =>
     (type === "all" || row.type === type) &&
     (status === "all" || row.status === status) &&
-    (row.description + " " + row.category + " " + (row.notes || "")).toLocaleLowerCase("pt-BR").includes(query)
+    (row.description + " " + row.category + " " + (row.type === "income" ? "entrada" : "saida")).toLocaleLowerCase("pt-BR").includes(query)
   ).sort((a, b) => b.date.localeCompare(a.date) || a.description.localeCompare(b.description, "pt-BR"));
   const body = byId("transactions-body");
   body.replaceChildren();
@@ -193,9 +191,13 @@ function renderRows(rows) {
     const name = el("td");
     name.append(el("span", "item-name", row.description));
     const date = el("td", "", formatDate(row.date));
+    const typeCell = el("td");
+    const typeName = row.type === "income" ? "Entrada" : "Saída";
+    typeCell.append(el("span", "badge type-" + row.type, typeName));
+    tr.setAttribute("aria-label", "Em " + monthText(row.date) + ", " + typeName.toLowerCase() + " de " + money(row.amount_cents) + ": " + row.description);
     const category = el("td", "", row.category);
     const statusCell = el("td");
-    statusCell.append(el("span", "badge " + row.status, row.status === "paid" ? (row.type === "income" ? "Recebido" : "Pago") : "Pendente"));
+    statusCell.append(el("span", "badge " + row.status, row.status === "paid" ? "Pago" : "Pendente"));
     const value = el("td", "amount-col");
     value.append(el("span", "value " + row.type, (row.type === "income" ? "+ " : "− ") + money(row.amount_cents)));
     const actions = el("td", "actions-col");
@@ -206,7 +208,7 @@ function renderRows(rows) {
       actionButton("×", "Excluir " + row.description, () => deleteTransaction(row))
     );
     actions.append(buttons);
-    tr.append(name, date, category, statusCell, value, actions);
+    tr.append(date, typeCell, name, value, category, statusCell, actions);
     body.append(tr);
   }
   byId("empty-state").hidden = filtered.length > 0;

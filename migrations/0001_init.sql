@@ -1,10 +1,11 @@
--- Banco D1 exclusivo financeiro: 66379719-dc22-4e1f-9645-ae5a52ff43af
--- Exatamente cinco colunas. SQLite oferece rowid implícito para editar/excluir.
--- Mes/ano: YYYY-MM. Valor em centavos com sinal: receita +, despesa -.
+-- D1 financeiro, schema já aplicado ao banco remoto.
+-- Seis colunas em ordem: data, tipo, descricao, valor, categoria, status.
+-- Valor em centavos inteiros positivos. O rowid é implícito.
 CREATE TABLE IF NOT EXISTS registros (
   data TEXT NOT NULL CHECK (length(data)=7 AND data GLOB '[12][0-9][0-9][0-9]-[01][0-9]' AND CAST(substr(data,6,2) AS INTEGER) BETWEEN 1 AND 12),
+  tipo TEXT NOT NULL CHECK (tipo IN ('entrada','saida')),
   descricao TEXT NOT NULL CHECK (length(trim(descricao)) BETWEEN 1 AND 100),
-  valor INTEGER NOT NULL CHECK (valor BETWEEN -100000000000 AND 100000000000 AND valor != 0),
+  valor INTEGER NOT NULL CHECK (valor BETWEEN 1 AND 100000000000),
   categoria TEXT NOT NULL CHECK (length(trim(categoria)) BETWEEN 1 AND 40),
   status TEXT NOT NULL CHECK (status IN ('pendente','pago'))
 );

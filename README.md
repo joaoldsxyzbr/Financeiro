@@ -12,12 +12,13 @@ Site para controle financeiro pessoal, em **JavaScript puro, HTML, CSS, SQL, Clo
 | Coluna | Conteúdo |
 |---|---|
 | `data` | Apenas mês e ano, `2026-11` |
+| `tipo` | `entrada` ou `saida` |
 | `descricao` | Texto |
-| `valor` | Centavos inteiros: positivo é receita, negativo é despesa |
+| `valor` | Centavos inteiros positivos (`290000` = R$ 2.900,00) |
 | `categoria` | Texto |
 | `status` | `pendente` ou `pago` |
 
-A tabela tem exatamente cinco colunas. A aplicação usa o `rowid` automático do SQLite para editar ou excluir registros. Não há dados de exemplo no banco.
+A tabela tem exatamente seis colunas, com `tipo` entre `data` e `descricao`. O tipo da movimentação é explícito e os valores são positivos. A aplicação usa o `rowid` automático do SQLite para editar ou excluir registros. Não há dados de exemplo no banco.
 
 ## Site
 
