@@ -36,15 +36,13 @@ Dashboard com receitas, despesas, saldo, pendências, evolução semestral e lan
 Consulte [AGENTS.md](AGENTS.md).
 ## Tabela de usuários
 
-A tabela `usuarios` foi criada no mesmo D1 `financeiro`. Ela tem:
+A tabela `usuarios` está no mesmo D1 `financeiro` e possui apenas quatro colunas. Não é necessário e-mail para identificar os usuários:
 
 | Coluna | Uso |
 |---|---|
 | `id` | Identificador automático (inteiro) |
 | `nome` | Nome do usuário, obrigatório |
-| `email` | E-mail único, sem diferenciar maiúsculas e minúsculas |
-| `senha_hash` | Hash seguro de senha, obrigatório; **nunca** armazenar senha em texto puro |
-| `ativo` | 1 = ativo, 0 = inativo (padrão 1) |
-| `criado_em` | Data de criação automática, em UTC |
+| `usuario` | Login único (3 a 50 caracteres; comparação sem diferenciar maiúsculas e minúsculas) |
+| `senha_hash` | Hash seguro da senha, obrigatório; **nunca** armazenar senha em texto puro |
 
-**Atenção:** a tabela está vazia; nenhum usuário foi criado. O site **ainda não possui cadastro nem login por usuário**, e a tabela `registros` ainda não pertence a usuários individuais. A API continua usando a chave privada `FINANCEIRO_API_TOKEN`. Implementar autenticação real posteriormente exigirá hash robusto com sal, sessões seguras e autorização por usuário. A migração `migrations/0002_usuarios.sql` registra o esquema.
+**Atenção:** a tabela foi conferida após a alteração e está vazia; nenhum usuário foi criado. O site **ainda não possui cadastro nem login por usuário**, e a tabela `registros` ainda não pertence a usuários individuais. A API continua usando a chave privada `FINANCEIRO_API_TOKEN`. Implementar autenticação real posteriormente exigirá hash robusto com sal, sessões seguras e autorização por usuário. A migração `migrations/0002_usuarios.sql` registra o esquema.
