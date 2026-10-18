@@ -1,23 +1,12 @@
--- D1 exclusivo do Financeiro. Não executar em outro banco.
-CREATE TABLE IF NOT EXISTS transactions (
-  id TEXT PRIMARY KEY NOT NULL,
-  description TEXT NOT NULL CHECK (length(description) BETWEEN 1 AND 100),
-  type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-  category TEXT NOT NULL CHECK (length(category) BETWEEN 1 AND 40),
-  amount_cents INTEGER NOT NULL CHECK (amount_cents > 0 AND amount_cents <= 100000000000),
-  date TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('paid', 'pending')),
-  notes TEXT NOT NULL DEFAULT '',
-  installment_group TEXT,
-  installment_number INTEGER,
-  installment_total INTEGER,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-  CHECK (
-    (installment_group IS NULL AND installment_number IS NULL AND installment_total IS NULL)
-    OR (installment_group IS NOT NULL AND installment_number BETWEEN 1 AND installment_total AND installment_total BETWEEN 2 AND 24)
-  )
+-- Banco D1 exclusivo financeiro: 66379719-dc22-4e1f-9645-ae5a52ff43af
+-- Exatamente cinco colunas. SQLite oferece rowid implícito para editar/excluir.
+-- Mes/ano: YYYY-MM. Valor em centavos com sinal: receita +, despesa -.
+CREATE TABLE IF NOT EXISTS registros (
+  data TEXT NOT NULL CHECK (length(data)=7 AND data GLOB '[12][0-9][0-9][0-9]-[01][0-9]' AND CAST(substr(data,6,2) AS INTEGER) BETWEEN 1 AND 12),
+  descricao TEXT NOT NULL CHECK (length(trim(descricao)) BETWEEN 1 AND 100),
+  valor INTEGER NOT NULL CHECK (valor BETWEEN -100000000000 AND 100000000000 AND valor != 0),
+  categoria TEXT NOT NULL CHECK (length(trim(categoria)) BETWEEN 1 AND 40),
+  status TEXT NOT NULL CHECK (status IN ('pendente','pago'))
 );
-CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date);
-CREATE INDEX IF NOT EXISTS idx_transactions_status_date ON transactions (status, date);
-CREATE INDEX IF NOT EXISTS idx_transactions_installment_group ON transactions (installment_group);
+CREATE INDEX IF NOT EXISTS idx_registros_data ON registros(data);
+CREATE INDEX IF NOT EXISTS idx_registros_status_data ON registros(status,data);

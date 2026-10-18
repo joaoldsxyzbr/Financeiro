@@ -1,21 +1,11 @@
 # AGENTS.md — Financeiro
 
-## Objetivo
-Aplicação web pessoal para controlar receitas, despesas, lançamentos pendentes, parcelas e saldos por mês. Priorizar simplicidade, clareza, segurança e manutenção.
-
-## Regras obrigatórias
-1. **Tecnologias:** exclusivamente JavaScript puro (ES modules), HTML, CSS e SQL. Não utilizar React, Vue, Vite, TypeScript ou frameworks/bundlers. Cloudflare Workers para API e Cloudflare D1 para persistência.
-2. **Banco de dados:** o Financeiro terá **um D1 novo e exclusivo**, criado e vinculado futuramente pelo usuário como binding `DB`. **Nunca** conectar, alterar, migrar ou importar automaticamente dados dos bancos atuais de gastos ou ponto.
-3. **Segurança:** dados reais só pela API do Worker, com autenticação obrigatória; nunca expor credenciais, tokens ou detalhes internos em arquivos públicos. Não armazenar token de acesso permanentemente no navegador. Não habilitar endpoints de escrita sem autenticação. Usar SQL parametrizado; validar e limitar toda entrada também no servidor.
-4. **Integridade financeira:** representar dinheiro em centavos inteiros, formatar em BRL e usar datas ISO (`AAAA-MM-DD`) para lançamentos. Não somar dinheiro com ponto flutuante. Todas as operações e resumos devem preservar o mês/ano correto; parcelas precisam de lançamentos separados, criados atomicamente.
-5. **Interface:** visual moderno, profissional, responsivo e acessível. Português brasileiro, comunicação curta e direta, navegação simples, estados de carregamento/vazio/erro claros. Sem dados falsos apresentados como reais.
-6. **Modo demonstração:** enquanto o novo D1 não estiver configurado, permitir explorar dados **fictícios e temporários apenas em memória**, claramente identificados como demonstração. Nunca sincronizar dados de demonstração com o D1.
-7. **Organização:** `public/` para HTML/CSS/JS, `src/worker.js` para a API e `migrations/` para o esquema SQL. Manter arquivos pequenos e responsabilidade definida. Sem dependências desnecessárias.
-8. **Mudanças:** preservar funcionalidades existentes, testar antes de concluir, documentar alterações que exigem configuração; não editar outras aplicações nem Cloudflare D1 sem autorização explícita.
-
-## Checklist de entrega
-- Nada conectado a D1 antigo.
-- Autenticação exigida para API real.
-- Lançamentos e totais coerentes em centavos.
-- Interface utilizável em desktop e celular.
-- Modo demonstração claramente sinalizado até configurar DB e credencial.
+## Regras permanentes
+1. **Tecnologia:** site em HTML, CSS, JavaScript puro (ES Modules) e SQL. Backend Cloudflare Workers, banco Cloudflare D1. Não usar React, Vite, Vue ou TypeScript.
+2. **D1 exclusivo:** usar apenas o banco `financeiro` (ID `66379719-dc22-4e1f-9645-ae5a52ff43af`), binding `DB`. Nunca tocar os antigos bancos de gastos ou ponto sem pedido explícito.
+3. **Tabela obrigatória:** `registros`, com somente cinco colunas: `data` (AAAA-MM), `descricao`, `valor` (centavos inteiros, positivo receita e negativo despesa), `categoria` e `status` (`pendente` ou `pago`). Identificar linhas pelo `rowid` implícito; não criar sexta coluna.
+4. **Interface:** painel financeiro responsivo, profissional, simples e claro, em português, com filtro mensal, lançamentos e resumo de receitas/despesas. Sem armazenar dia do mês ou parcelas.
+5. **Segurança:** exigir secret `FINANCEIRO_API_TOKEN` com mínimo de 32 caracteres para a API real; nunca expor segredos ou dados privados sem autenticação. Usar SQL parametrizado e validações server-side. Não salvar token no armazenamento do navegador.
+6. **Demonstração:** dados fictícios apenas em memória, rotulados como demo; nunca gravar testes no D1.
+7. **Código:** organização leve em `public/`, `src/` e `migrations/`, sem dependências desnecessárias, testes antes de publicar.
+8. **Deploy:** configurar binding do D1 neste repositório. Não publicar nem criar secret sem autorização/contexto suficiente.

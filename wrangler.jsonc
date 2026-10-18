@@ -5,6 +5,16 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
-  }
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "financeiro",
+      "database_id": "66379719-dc22-4e1f-9645-ae5a52ff43af",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
