@@ -269,10 +269,12 @@ async function request(path, options = {}) {
 async function reload() {
   if (state.mode === "live") {
     if (!state.token) return;
+    const requestedMonth = state.month;
     const [list, trends] = await Promise.all([
-      request("transactions?month=" + encodeURIComponent(state.month)),
-      request("trends?month=" + encodeURIComponent(state.month))
+      request("transactions?month=" + encodeURIComponent(requestedMonth)),
+      request("trends?month=" + encodeURIComponent(requestedMonth))
     ]);
+    if (requestedMonth !== state.month) return;
     state.records = list.transactions;
     state.trends = trends.months;
   }
@@ -291,7 +293,7 @@ async function perform(operation) {
 function setMonth(month) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return;
   state.month = month;
-  perform(reload);
+  reload().catch((error) => showToast(error.message, true));
 }
 
 function updateCategories(type, selected = "") {

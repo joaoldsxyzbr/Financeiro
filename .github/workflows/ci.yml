@@ -1,0 +1,19 @@
+name: Validar Financeiro
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check public/js/app.js
+      - run: node --check src/worker.js
+      - run: npm test
