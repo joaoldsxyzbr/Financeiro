@@ -9,3 +9,4 @@
 6. **Demonstração:** dados fictícios apenas em memória, rotulados como demo; nunca gravar testes no D1.
 7. **Código:** organização leve em `public/`, `src/` e `migrations/`, sem dependências desnecessárias, testes antes de publicar.
 8. **Deploy:** configurar binding do D1 neste repositório. Não publicar nem criar secret sem autorização/contexto suficiente.
+9. **Usuários:** a tabela `usuarios` pertence ao mesmo D1 exclusivo e contém `id`, `nome`, `email` (único, sem distinguir maiúsculas/minúsculas), `senha_hash`, `ativo` (0/1) e `criado_em`. Jamais salvar senhas em texto puro. Ao desenvolver cadastro/login, usar hash apropriado para senhas com sal único e verificação segura. A criação da tabela **não** significa que o login por usuários já esteja integrado: a autenticação atual da API por `FINANCEIRO_API_TOKEN` permanece até substituição completa e testada.
