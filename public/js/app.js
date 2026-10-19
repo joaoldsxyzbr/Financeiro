@@ -4,10 +4,6 @@ const monthText = (key) => {
   const [year, month] = key.split("-").map(Number);
   return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
 };
-const shortMonth = (key) => {
-  const [year, month] = key.split("-").map(Number);
-  return new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(year, month - 1, 1)).replace(".", "");
-};
 const monthKey = (date) => String(date.getFullYear()) + "-" + String(date.getMonth() + 1).padStart(2, "0");
 const plusMonths = (key, offset) => {
   const [year, month] = key.split("-").map(Number);
@@ -25,7 +21,6 @@ const state = {
   month: plusMonths(monthKey(new Date()), 1),
   view: "dashboard",
   records: [],
-  trends: [],
   editing: null
 };
 
@@ -143,18 +138,8 @@ function currentRows() {
 }
 
 function summarize(rows) {
-  const totals = { income: 0, expense: 0, pending: 0, pendingCount: 0, receivable: 0, realizedIncome: 0, realizedExpense: 0 };
-  for (const row of rows) {
-    totals[row.type] += row.amount_cents;
-    if (row.status === "pending") {
-      totals.pendingCount++;
-      if (row.type === "expense") totals.pending += row.amount_cents;
-      else totals.receivable += row.amount_cents;
-    } else {
-      if (row.type === "income") totals.realizedIncome += row.amount_cents;
-      else totals.realizedExpense += row.amount_cents;
-    }
-  }
+  const totals = { income: 0, expense: 0 };
+  for (const row of rows) totals[row.type] += row.amount_cents;
   return totals;
 }
 
@@ -163,42 +148,6 @@ function renderMetrics(rows) {
   byId("metric-income").textContent = money(totals.income);
   byId("metric-expense").textContent = money(totals.expense);
   byId("metric-balance").textContent = money(totals.income - totals.expense);
-  byId("metric-pending").textContent = money(totals.pending);
-  byId("metric-realized").textContent = money(totals.realizedIncome - totals.realizedExpense);
-  byId("metric-count").textContent = String(rows.length);
-  byId("metric-pending-count").textContent = String(totals.pendingCount);
-  byId("metric-receivable").textContent = money(totals.receivable);
-}
-
-function monthTotals() {
-  if (state.mode === "live") return state.trends;
-  const months = Array.from({ length: 6 }, (_, i) => plusMonths(state.month, i - 5));
-  return months.map((month) => {
-    const totals = summarize(state.records.filter((row) => row.date.slice(0, 7) === month));
-    return { month, income_cents: totals.income, expense_cents: totals.expense };
-  });
-}
-
-function renderChart() {
-  const target = byId("trend-chart");
-  target.replaceChildren();
-  const data = monthTotals();
-  const max = Math.max(1, ...data.flatMap((item) => [item.income_cents, item.expense_cents]));
-  const accessible = [];
-  for (const item of data) {
-    const container = el("div", "chart-month" + (item.month === state.month ? " current" : ""));
-    const bars = el("div", "chart-bars");
-    for (const [type, value] of [["income", item.income_cents], ["expense", item.expense_cents]]) {
-      const bar = el("div", "bar " + type);
-      bar.style.height = Math.max(2, value / max * 100) + "%";
-      bar.title = (type === "income" ? "Receitas: " : "Despesas: ") + money(value);
-      bars.append(bar);
-    }
-    container.append(bars, el("span", "month-name", shortMonth(item.month)));
-    target.append(container);
-    accessible.push(monthText(item.month) + ": receitas " + money(item.income_cents) + ", despesas " + money(item.expense_cents));
-  }
-  target.setAttribute("aria-label", accessible.join("; "));
 }
 
 function actionButton(symbol, label, callback) {
@@ -265,7 +214,6 @@ function render() {
   updateMode();
   const rows = currentRows();
   renderMetrics(rows);
-  renderChart();
   renderRows(rows);
 }
 
@@ -286,7 +234,6 @@ async function request(path, options = {}) {
       state.token = "";
       state.user = null;
       state.records = [];
-      state.trends = [];
       render();
       showLogin();
     }
@@ -299,13 +246,9 @@ async function reload() {
   if (state.mode === "live") {
     if (!state.token) return;
     const requestedMonth = state.month;
-    const [list, trends] = await Promise.all([
-      request("transactions?month=" + encodeURIComponent(requestedMonth)),
-      request("trends?month=" + encodeURIComponent(requestedMonth))
-    ]);
+    const list = await request("transactions?month=" + encodeURIComponent(requestedMonth));
     if (requestedMonth !== state.month) return;
     state.records = list.transactions;
-    state.trends = trends.months;
   }
   render();
 }
@@ -451,7 +394,6 @@ function bindEvents() {
     state.token = "";
     state.user = null;
     state.records = [];
-    state.trends = [];
     render();
     showLogin();
   });
