@@ -116,3 +116,30 @@ h1,h2,p{margin-top:0}h1{font-size:29px;letter-spacing:-1px;line-height:1.2;margi
   .categories-panel .filters select{flex:1 1 100%}
   .categories-panel .category-table{min-width:360px}
 }
+/* Navegação lateral compacta: ícones quadrados, textos pequenos e menu sempre visível. */
+.app-shell{grid-template-columns:100px minmax(0,1fr)}
+.sidebar{align-items:center;padding:24px 10px 20px}
+.sidebar .brand{padding:0;margin:0 0 34px;justify-content:center;width:100%}
+.sidebar .brand>span:last-child{display:none}
+.sidebar .brand-symbol{width:42px;height:42px;border-radius:12px}
+.sidebar .nav-label{display:none}
+.sidebar .nav{width:100%;display:grid;gap:12px}
+.sidebar .nav-item{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:8px 2px;min-height:80px;background:transparent;border-radius:13px;font-size:11px;text-align:center;color:#a9bad0}
+.sidebar .nav-item span{display:grid;place-items:center;width:43px;height:43px;border-radius:12px;background:#1b2b3e;border:1px solid #33495d;color:#bed0e2;font-size:21px;line-height:1}
+.sidebar .nav-item:hover{background:#1e2e42;color:#edf6ff}
+.sidebar .nav-item:hover span{background:#293f55;color:#fff}
+.sidebar .nav-item.active{background:transparent;color:#ddfff1}
+.sidebar .nav-item.active span{background:#153f34;border-color:#286e5c;color:#63e8bd}
+.sidebar .sidebar-bottom{display:flex;justify-content:center;width:100%;padding:0}
+.sidebar .sidebar-bottom p{display:none}
+.sidebar .sidebar-note #sidebar-mode{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+@media(max-width:740px){
+.app-shell{display:block}
+.sidebar{height:auto;position:static;flex-direction:row;justify-content:space-between;padding:12px 14px}
+.sidebar .brand{margin:0;width:auto}
+.sidebar .brand-symbol{width:37px;height:37px}
+.sidebar .nav{width:auto;display:flex;gap:7px}
+.sidebar .nav-item{width:75px;min-height:0;padding:3px;gap:5px;font-size:10px}
+.sidebar .nav-item span{width:36px;height:36px;font-size:19px;border-radius:10px}
+.sidebar .sidebar-bottom{display:none}
+}
