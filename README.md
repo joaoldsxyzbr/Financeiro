@@ -83,3 +83,13 @@ A Cloudflare faz deploys do Worker `financeiro`; o GitHub Actions independente, 
 - Ícone SVG próprio, referenciado no HTML, eliminando a necessidade de carregar um favicon ausente.
 - A verificação de senhas migrou de Web Crypto PBKDF2 para `node:crypto` PBKDF2: no Workers, Web Crypto bloqueia chamadas com mais de 100.000 iterações. O algoritmo, salt e os **600.000 ciclos dos hashes existentes** foram preservados; nenhuma senha foi alterada.
 - Testes do fluxo de login e validação do nome de usuário adicionados. Não considerar CI aprovado nem login real validado até testar a versão publicada.
+## Login compatível com Cloudflare Workers (outubro/2026)
+
+A Cloudflare limita **cada chamada PBKDF2** a 100.000 iterações, inclusive por `node:crypto` no runtime publicado. Por isso, o login agora busca apenas sal e número de iterações da conta, deriva o segredo no **Web Crypto do navegador** e envia a prova por HTTPS. O Worker valida com comparação em tempo constante, sem recalcular PBKDF2 acima do limite.
+
+- Os hashes existentes `pbkdf2-sha256` com **600.000 iterações** continuam válidos. Depois do primeiro login correto, são substituídos automaticamente por verificadores `pbkdf2-hmac`, protegidos por HMAC do segredo privado do Worker.
+- Hashes criados pela API administrativa usam 100.000 iterações de PBKDF2 na Cloudflare e verificador com HMAC privado; a interface exige senha de no mínimo 12 caracteres na alteração.
+- A alteração de senha também deriva o PBKDF2 no navegador; o servidor verifica a prova da senha anterior, sem receber senhas em texto puro.
+- Nunca persistir prova de senha, hash de autenticação ou token de sessão no armazenamento do navegador; manter apenas a sessão enquanto a aba estiver aberta.
+- Não rotacionar `FINANCEIRO_API_TOKEN` sem plano de migração dos verificadores HMAC, pois o segredo também protege os hashes armazenados.
+- A autenticação ainda precisa ser exercitada no Worker publicado; testes de Node.js e Wrangler não comprovam o comportamento do edge.
