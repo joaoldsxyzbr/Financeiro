@@ -91,6 +91,27 @@ function createDemoRecords() {
   return items;
 }
 
+// A derivação PBKDF2 ocorre no navegador; o Worker nunca recebe a senha em texto puro.
+function toBase64Url(bytes) {
+  let text = "";
+  for (const value of bytes) text += String.fromCharCode(value);
+  return btoa(text).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function fromBase64Url(value) {
+  const binary=atob(value.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-value.length%4)%4));
+  return Uint8Array.from(binary,ch=>ch.charCodeAt(0));
+}
+async function passwordProof(password,salt,rounds) {
+  if(!Number.isInteger(rounds)||rounds<100000||rounds>1000000)throw new Error("Parâmetros de login inválidos.");
+  if(!/^[a-zA-Z0-9_-]{22}$/.test(salt))throw new Error("Sal de senha inválido.");
+  const encoder=new TextEncoder();
+  const source=await crypto.subtle.importKey("raw",encoder.encode(password),"PBKDF2",false,["deriveBits"]);
+  const derived=await crypto.subtle.deriveBits({
+    name:"PBKDF2",salt:fromBase64Url(salt),iterations:rounds,hash:"SHA-256"
+  },source,256);
+  return toBase64Url(new Uint8Array(derived));
+}
+
 function showLogin() {
   byId("app-shell").hidden = true;
   byId("login-screen").hidden = false;
@@ -261,7 +282,7 @@ async function request(path, options = {}) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 && !["login", "me/password"].includes(path)) {
       state.token = "";
       state.user = null;
       state.records = [];
@@ -416,9 +437,11 @@ function bindEvents() {
     }
     const btn=byId("password-form").querySelector('[type="submit"]');btn.disabled=true;
     try{
-      await request("me/password",{method:"POST",body:JSON.stringify({
-        senha_atual:byId("old-password").value,nova_senha:byId("new-password").value
-      })});
+      const oldParams=await request("me/password/params");
+      const oldProof=await passwordProof(byId("old-password").value,oldParams.salt,oldParams.rounds);
+      const newSalt=toBase64Url(crypto.getRandomValues(new Uint8Array(16)));
+      const newProof=await passwordProof(byId("new-password").value,newSalt,600000);
+      await request("me/password",{method:"POST",body:JSON.stringify({oldProof,newProof,newSalt})});
       byId("password-dialog").close();byId("password-form").reset();
       showToast("Senha alterada com sucesso.");
     }catch(err){byId("password-error").textContent=err.message;}
@@ -438,12 +461,13 @@ function bindEvents() {
     const submit = byId("auth-form").querySelector('[type="submit"]');
     submit.disabled = true;
     try {
-      const result = await request("login", {
-        method: "POST",
-        body: JSON.stringify({
-          usuario: byId("auth-username").value.trim(),
-          senha: byId("auth-password").value
-        })
+      const usuario=byId("auth-username").value.trim();
+      const senha=byId("auth-password").value;
+      const params=await request("login/params?usuario="+encodeURIComponent(usuario));
+      const proof=await passwordProof(senha,params.salt,params.rounds);
+      const result=await request("login",{
+        method:"POST",
+        body:JSON.stringify({usuario,proof})
       });
       state.token = result.token;
       state.user = result.user;
@@ -452,6 +476,7 @@ function bindEvents() {
       showApp();
       updateMode();
       showToast("Bem-vindo ao Financeiro!");
+      if(senha.length<12)showToast("Sua senha é curta. Altere-a em sua conta.",true);
     } catch (error) {
       state.token = "";
       state.user = null;
