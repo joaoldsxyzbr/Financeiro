@@ -1,4 +1,5 @@
-// Autenticação sem dependências, usando primitivas Web Crypto nativas do Worker.
+// PBKDF2 com 600 mil iterações via Node.js nativo (Workers: Web Crypto limita 100 mil).
+import { pbkdf2 as nodePbkdf2 } from "node:crypto";
 const textEncoder = new TextEncoder();
 const ITERATIONS = 600000;
 const MAX_SESSION_MS = 8 * 60 * 60 * 1000;
@@ -27,10 +28,12 @@ function fromBase64Url(value) {
   return Uint8Array.from(binary, ch => ch.charCodeAt(0));
 }
 async function pbkdf2(password, salt, rounds) {
-  const source = await crypto.subtle.importKey("raw", textEncoder.encode(password), "PBKDF2", false, ["deriveBits"]);
-  return new Uint8Array(await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations: rounds, hash: "SHA-256" }, source, 256
-  ));
+  return new Promise((resolve, reject) => {
+    nodePbkdf2(password, salt, rounds, 32, "sha256", (err, digest) => {
+      if (err) reject(err);
+      else resolve(new Uint8Array(digest));
+    });
+  });
 }
 export async function hashPassword(password) {
   if (typeof password !== "string" || password.length < 12 || password.length > 128) throw new Error("Senha inválida.");
