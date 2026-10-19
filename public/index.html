@@ -43,7 +43,7 @@
       <p class="nav-label">MENU</p>
       <nav class="nav" aria-label="Seções">
         <button class="nav-item active" type="button" data-view-button="dashboard" aria-current="page"><span aria-hidden="true">▦</span> Visão geral</button>
-        <button class="nav-item" type="button" data-view-button="transactions"><span aria-hidden="true">⇄</span> Lançamentos</button>
+        <button class="nav-item" type="button" data-view-button="categories"><span aria-hidden="true">▤</span> Categorias</button>
       </nav>
       <div class="sidebar-bottom">
         <div class="sidebar-note"><span class="status-dot"></span><span id="sidebar-mode">Verificando conexão…</span></div>
@@ -102,9 +102,48 @@
         <div class="empty-state" id="empty-state" hidden><span aria-hidden="true">◇</span><strong>Nenhum lançamento encontrado</strong><p>Adicione um registro ou ajuste os filtros.</p><button type="button" class="subtle-button" data-add>Adicionar lançamento</button></div>
         <div class="table-footer"><span id="result-count">0 lançamentos</span></div>
       </section>
+      <section class="panel categories-panel" id="categories-panel" aria-labelledby="categories-title" hidden>
+        <div class="panel-heading transactions-heading">
+          <div><h2 id="categories-title">Minhas categorias</h2><p>Organize as categorias usadas nos seus lançamentos</p></div>
+          <button class="subtle-button" type="button" id="add-category"><span aria-hidden="true">＋</span> Nova categoria</button>
+        </div>
+        <div class="filters">
+          <label class="search-field"><span aria-hidden="true">⌕</span><input id="category-search" type="search" placeholder="Buscar categoria" aria-label="Buscar categoria" autocomplete="off"></label>
+          <select id="category-type-filter" aria-label="Filtrar categorias por tipo">
+            <option value="all">Todas as categorias</option><option value="income">Entradas</option><option value="expense">Saídas</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table class="category-table"><thead><tr><th>Categoria</th><th>Tipo</th><th class="actions-col">Ações</th></tr></thead>
+            <tbody id="categories-body"></tbody></table>
+        </div>
+        <div class="empty-state" id="categories-empty" hidden>
+          <span aria-hidden="true">◇</span><strong>Nenhuma categoria encontrada</strong>
+          <p>Adicione sua primeira categoria ou ajuste os filtros.</p>
+        </div>
+        <div class="table-footer"><span id="categories-count">0 categorias</span></div>
+      </section>
       <footer class="footer">Financeiro · Seus números, com mais clareza.</footer>
     </main>
   </div>
+
+  <dialog id="category-dialog" class="modal">
+    <form id="category-form">
+      <div class="modal-header">
+        <div><p class="eyebrow">ORGANIZE SEUS LANÇAMENTOS</p><h2 id="category-dialog-title">Nova categoria</h2></div>
+        <button class="close-button" type="button" data-close="category-dialog" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-body">
+        <label>Nome<input id="category-name" type="text" maxlength="40" required autocomplete="off" placeholder="Ex.: Alimentação"></label>
+        <label>Tipo<select id="category-type" required><option value="expense">Saída</option><option value="income">Entrada</option></select></label>
+        <p class="form-hint" id="category-error" role="alert"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="subtle-button" data-close="category-dialog">Cancelar</button>
+        <button type="submit" class="primary-button" id="category-save">Salvar categoria</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="transaction-dialog" class="modal">
     <form id="transaction-form">
