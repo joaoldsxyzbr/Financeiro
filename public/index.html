@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="dark">
   <meta name="description" content="Financeiro: controle pessoal de receitas, despesas e planejamento mensal.">
   <title>Financeiro — Meu controle</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/styles.css">
   <script type="module" src="/js/app.js"></script>
 </head>
@@ -24,7 +25,7 @@
     <p class="eyebrow">BEM-VINDO DE VOLTA</p><h2 id="login-title">Entre na sua conta</h2>
     <p class="login-subtitle">Use seu usuário e sua senha para acessar seu painel.</p>
     <form id="auth-form" class="login-form">
-      <label for="auth-username">Usuário</label><input id="auth-username" type="text" minlength="3" maxlength="50" pattern="[a-zA-Z0-9._-]{3,50}" required autocomplete="username" placeholder="Seu usuário" spellcheck="false">
+      <label for="auth-username">Usuário</label><input id="auth-username" type="text" minlength="3" maxlength="50" pattern="[A-Za-z0-9._\-]{3,50}" required autocomplete="username" placeholder="Seu usuário" spellcheck="false">
       <label for="auth-password">Senha</label><input id="auth-password" type="password" required autocomplete="current-password" placeholder="Sua senha">
       <p class="login-error" id="auth-error" role="alert" aria-live="polite"></p>
       <button class="primary-button login-submit" type="submit">Entrar <span aria-hidden="true">→</span></button>
