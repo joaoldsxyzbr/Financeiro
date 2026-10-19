@@ -24,6 +24,8 @@ A tabela tem as seis colunas financeiras, mais `usuario_id` obrigatório (chave 
 
 A **Visão geral** mostra três KPIs para o mês selecionado: **Entradas**, **Saídas** e **Saldo**. Em seguida, apenas o card **Lançamentos do mês** com busca, filtros, inclusão, edição, exclusão e confirmação de pagamentos. Não há gráfico de evolução nem blocos extras de análise nessa tela. Sem parcelas e sem data diária. Dados fictícios em modo demonstração só existem na memória da aba.
 
+A segunda aba é **Categorias** (não mais Lançamentos): permite criar, listar, pesquisar, editar e excluir categorias de entrada e saída. O formulário de lançamentos carrega categorias cadastradas no D1 para cada conta.
+
 ## Próximos passos para o site real
 
 1. A tabela e o binding do novo D1 já estão prontos.
@@ -93,3 +95,16 @@ A Cloudflare limita **cada chamada PBKDF2** a 100.000 iterações, inclusive por
 - Nunca persistir prova de senha, hash de autenticação ou token de sessão no armazenamento do navegador; manter apenas a sessão enquanto a aba estiver aberta.
 - Não rotacionar `FINANCEIRO_API_TOKEN` sem plano de migração dos verificadores HMAC, pois o segredo também protege os hashes armazenados.
 - A autenticação ainda precisa ser exercitada no Worker publicado; testes de Node.js e Wrangler não comprovam o comportamento do edge.
+## CRUD de categorias
+
+A tabela `categorias` está no D1 `financeiro` e possui `id`, `usuario_id`, `nome` e `tipo`. O nome é único **por usuário e por tipo**, ignorando diferenças entre letras maiúsculas e minúsculas. A migração `migrations/0004_categorias.sql` não modifica ou exclui lançamentos; aproveita as categorias encontradas nos registros existentes e oferece o catálogo inicial.
+
+Todas as rotas abaixo exigem autenticação individual:
+- `GET /api/categories` — listar somente as categorias do usuário;
+- `POST /api/categories` — criar, enviando `{"name":"Mercado","type":"expense"}`;
+- `PUT /api/categories/:id` — editar nome/tipo de categoria própria;
+- `DELETE /api/categories/:id` — excluir uma categoria própria, **somente se não estiver em uso**.
+
+A edição de nome também atualiza os nomes de categoria dos lançamentos existentes **do mesmo usuário e tipo**, na mesma operação transacional. Se a categoria for usada, não é permitido mudar seu tipo. Os lançamentos validam no servidor se a categoria pertence ao usuário e ao tipo escolhido. O valor financeiro, a data e o status dos lançamentos são preservados.
+
+Categorias de **entrada** e de **saída** são independentes, inclusive quando têm o mesmo nome. Usuários novos criados pela API administrativa recebem as categorias iniciais; outras contas podem adicionar as suas no painel.
