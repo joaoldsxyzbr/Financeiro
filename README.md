@@ -27,9 +27,9 @@ Dashboard com receitas, despesas, saldo, pendências, evolução semestral e lan
 ## Próximos passos para o site real
 
 1. A tabela e o binding do novo D1 já estão prontos.
-2. Configurar no Worker o segredo privado `FINANCEIRO_API_TOKEN`, uma chave aleatória exclusiva com **pelo menos 32 caracteres** (por exemplo `npx wrangler secret put FINANCEIRO_API_TOKEN`). Nunca incluir a chave neste repositório ou em chats.
+2. O segredo privado `FINANCEIRO_API_TOKEN` já foi configurado no Worker na Cloudflare. Não incluí-lo no repositório nem compartilhá-lo.
 3. Fazer o deploy do Worker com `npx wrangler deploy` após configurar o segredo.
-4. Cadastrar cada usuário usando o endpoint administrativo protegido (`POST /api/admin/users`).
+4. Cadastre a primeira conta no seu terminal com `node scripts/create-user.js`, ou utilize o endpoint administrativo protegido para outras contas.
 5. Acessar o site com o nome de usuário e a senha individual.
 
 **Sem segredo o Worker bloqueia a API real.** O modo de demonstração não grava nada no D1. Não existe deploy automático configurado. As migrations representam etapas históricas do esquema; **não as reaplique em produção com dados reais sem verificar o estado atual e fazer backup**, especialmente `0003_registros_usuarios.sql`. Para testar: `npm test`, `node --check public/js/app.js` e `node --check src/worker.js`.
@@ -63,3 +63,17 @@ A tabela `registros` possui agora `usuario_id INTEGER NOT NULL REFERENCES usuari
 ## Aparência
 
 O Financeiro utiliza **modo escuro por padrão** em todo o site, inclusive formulários, pop-ups e telas móveis. A paleta combina fundo azul-marinho/grafite, painéis escuros, textos claros e verde como destaque. A aparência não depende do tema do sistema operacional.
+## Primeiro acesso e tela de login
+
+A Cloudflare já possui o Worker `financeiro`, binding `DB` para o D1 correto e o secret privado `FINANCEIRO_API_TOKEN`. O aplicativo usa a **tela de login escura** como página inicial, com usuário e senha; o painel só aparece após uma sessão individual válida. Inclui a opção **Alterar senha** dentro do painel. Nenhuma senha é registrada em texto puro.
+
+**Para cadastrar o primeiro usuário (uma única vez, em seu próprio terminal):**
+
+1. Tenha Node.js instalado e faça login na conta Cloudflare com `npx wrangler login`.
+2. Na pasta do repositório, execute `node scripts/create-user.js`.
+3. Informe nome, usuário e senha (mínimo de 12 caracteres); a digitação da senha não aparece na tela.
+4. O script armazena somente o hash PBKDF2-SHA256, com sal aleatório, no D1 remoto configurado. O arquivo temporário de SQL é apagado após o uso.
+
+O script **não** cadastra nada automaticamente nem altera dados de outros bancos. O cadastro de usuários pelo site permanece fechado (sem autoinscrição pública). O endpoint administrativo de cadastro continua protegido por segredo do Worker.
+
+A Cloudflare faz deploys do Worker `financeiro`; o GitHub Actions independente, em `.github/workflows/ci.yml`, tem apresentado falhas e precisa de investigação antes de considerar o CI aprovado.
