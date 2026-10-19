@@ -91,6 +91,15 @@ function createDemoRecords() {
   return items;
 }
 
+function showLogin() {
+  byId("app-shell").hidden = true;
+  byId("login-screen").hidden = false;
+  byId("auth-password").value = "";
+}
+function showApp() {
+  byId("login-screen").hidden = true;
+  byId("app-shell").hidden = false;
+}
 function updateMode() {
   const notice = byId("mode-notice");
   if (state.mode === "demo") {
@@ -98,11 +107,13 @@ function updateMode() {
     notice.textContent = "Modo demonstração — valores fictícios. Alterações são temporárias e não são salvas. Nenhum D1 está conectado.";
     byId("sidebar-mode").textContent = "Demonstração (sem D1)";
     byId("logout-button").hidden = true;
+    byId("password-button").hidden = true;
   } else if (state.mode === "live") {
     notice.className = "notice";
     notice.textContent = "Dados privados no novo D1 do Financeiro. A chave de acesso permanece apenas nesta aba.";
     byId("sidebar-mode").textContent = state.user ? "Conta: " + state.user.usuario : "Acesso protegido";
     byId("logout-button").hidden = !state.user;
+    byId("password-button").hidden = !state.user;
   }
 }
 
@@ -256,7 +267,7 @@ async function request(path, options = {}) {
       state.records = [];
       state.trends = [];
       render();
-      if (!byId("auth-dialog").open) byId("auth-dialog").showModal();
+      showLogin();
     }
     throw new Error(result.error || "Não foi possível comunicar com o servidor.");
   }
@@ -393,13 +404,33 @@ function bindEvents() {
   byId("status-filter").addEventListener("change", () => renderRows(currentRows()));
   byId("field-type").addEventListener("change", (event) => updateCategories(event.target.value));
   byId("transaction-form").addEventListener("submit", saveTransaction);
+  byId("password-button").addEventListener("click",()=>{
+    byId("password-form").reset();
+    byId("password-error").textContent="";
+    byId("password-dialog").showModal();
+  });
+  byId("password-form").addEventListener("submit",async e=>{
+    e.preventDefault();
+    if(byId("new-password").value!==byId("confirm-password").value){
+      byId("password-error").textContent="As senhas não são iguais.";return;
+    }
+    const btn=byId("password-form").querySelector('[type="submit"]');btn.disabled=true;
+    try{
+      await request("me/password",{method:"POST",body:JSON.stringify({
+        senha_atual:byId("old-password").value,nova_senha:byId("new-password").value
+      })});
+      byId("password-dialog").close();byId("password-form").reset();
+      showToast("Senha alterada com sucesso.");
+    }catch(err){byId("password-error").textContent=err.message;}
+    finally{btn.disabled=false;}
+  });
   byId("logout-button").addEventListener("click", () => {
     state.token = "";
     state.user = null;
     state.records = [];
     state.trends = [];
     render();
-    byId("auth-dialog").showModal();
+    showLogin();
   });
   byId("auth-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -418,7 +449,7 @@ function bindEvents() {
       state.user = result.user;
       byId("auth-password").value = "";
       await reload();
-      byId("auth-dialog").close();
+      showApp();
       updateMode();
       showToast("Bem-vindo ao Financeiro!");
     } catch (error) {
@@ -434,15 +465,19 @@ function bindEvents() {
 async function start() {
   bindEvents();
   try {
-    const response = await fetch("/api/health", { cache: "no-store" });
-    if (!response.ok) throw new Error("Worker indisponível");
-    const health = await response.json();
-    state.mode = health.configured ? "live" : "demo";
-  } catch {
-    state.mode = "demo";
-  }
-  if (state.mode === "demo") state.records = createDemoRecords();
+    const response = await fetch("/api/health",{cache:"no-store"});
+    if(!response.ok) throw new Error("Sem backend");
+    const status = await response.json();
+    state.mode=status.configured?"live":"demo";
+  } catch {state.mode="demo";}
+  if(state.mode==="demo") state.records=createDemoRecords();
   render();
-  if (state.mode === "live") byId("auth-dialog").showModal();
+  if(state.mode==="demo"){
+    byId("auth-error").textContent="O servidor real ainda não está configurado.";
+    byId("auth-form").querySelector('[type="submit"]').disabled=true;
+    byId("demo-access").hidden=false;
+    byId("demo-access").addEventListener("click",showApp);
+  }
+  showLogin();
 }
 start();

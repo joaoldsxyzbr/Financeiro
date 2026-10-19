@@ -120,6 +120,18 @@ async function getUser(db, request, secret) {
   return user;
 }
 
+async function changePassword(db,request,user){
+  const body=await parseRequest(request);
+  if(!body||typeof body.senha_atual!=="string"||typeof body.nova_senha!=="string")
+    throw error(400,"Informe a senha atual e nova senha.");
+  if(body.nova_senha.length<12||body.nova_senha.length>128)
+    throw error(400,"A nova senha precisa ter 12 a 128 caracteres.");
+  const row=await db.prepare("SELECT senha_hash FROM usuarios WHERE id=?").bind(user.id).first();
+  if(!row||!await verifyPassword(body.senha_atual,row.senha_hash))throw error(401,"Senha atual incorreta.");
+  const hash=await hashPassword(body.nova_senha);
+  await db.prepare("UPDATE usuarios SET senha_hash=? WHERE id=?").bind(hash,user.id).run();
+  return json({updated:true});
+}
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -136,6 +148,7 @@ export default {
       }
       const user = await getUser(env.DB,request,env.FINANCEIRO_API_TOKEN);
       if (url.pathname==="/api/me" && request.method==="GET") return json({user});
+      if (url.pathname==="/api/me/password" && request.method==="POST") return await changePassword(env.DB,request,user);
       if (url.pathname==="/api/transactions" && request.method==="GET") return await list(env.DB,requiredMonth(url),user.id);
       if (url.pathname==="/api/trends" && request.method==="GET") return await trend(env.DB,requiredMonth(url),user.id);
       if (url.pathname==="/api/transactions" && request.method==="POST") return await create(env.DB,request,user.id);
