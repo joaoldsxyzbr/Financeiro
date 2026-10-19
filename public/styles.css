@@ -101,3 +101,18 @@ h1,h2,p{margin-top:0}h1{font-size:29px;letter-spacing:-1px;line-height:1.2;margi
 @media(max-width:430px){.login-showcase{padding:22px 20px}.login-intro h1{font-size:31px}.login-side{padding:31px 20px 60px}}
 /* Os três KPIs ficam acima do card de lançamentos. */
 .dashboard-only .metric strong{white-space:normal;overflow-wrap:anywhere}
+/* Gerenciamento de categorias: mesmo padrão visual escuro dos lançamentos. */
+.categories-panel{overflow:hidden}
+.categories-panel .category-table{min-width:420px}
+.category-table td:first-child,.category-table th:first-child{width:65%}
+.category-table td{padding-top:16px;padding-bottom:16px}
+.category-table .row-actions button{padding:7px 10px;font-size:15px}
+.category-table .row-actions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#category-dialog .modal-body{gap:17px}
+#category-error:empty{display:none}
+@media(max-width:740px){
+  .categories-panel .filters{flex-wrap:wrap}
+  .categories-panel .search-field{flex:1 1 100%}
+  .categories-panel .filters select{flex:1 1 100%}
+  .categories-panel .category-table{min-width:360px}
+}
