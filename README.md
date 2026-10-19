@@ -22,7 +22,7 @@ A tabela tem as seis colunas financeiras, mais `usuario_id` obrigatório (chave 
 
 ## Site
 
-Dashboard com receitas, despesas, saldo, pendências, evolução semestral e lançamentos para cada mês. Permite cadastrar, pesquisar, filtrar, editar, excluir e marcar como pago/pendente. Sem parcelas e sem data diária. Dados fictícios em modo demonstração só existem na memória da aba.
+A **Visão geral** mostra três KPIs para o mês selecionado: **Entradas**, **Saídas** e **Saldo**. Em seguida, apenas o card **Lançamentos do mês** com busca, filtros, inclusão, edição, exclusão e confirmação de pagamentos. Não há gráfico de evolução nem blocos extras de análise nessa tela. Sem parcelas e sem data diária. Dados fictícios em modo demonstração só existem na memória da aba.
 
 ## Próximos passos para o site real
 
