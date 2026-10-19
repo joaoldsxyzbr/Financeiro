@@ -1,7 +1,7 @@
 // PBKDF2 com 600 mil iterações via Node.js nativo (Workers: Web Crypto limita 100 mil).
 import { pbkdf2 as nodePbkdf2 } from "node:crypto";
 const textEncoder = new TextEncoder();
-const ITERATIONS = 600000;
+const ITERATIONS = 100000; // Limite por chamada PBKDF2 no Cloudflare Workers.
 const MAX_SESSION_MS = 8 * 60 * 60 * 1000;
 
 export function validUsername(value) {
@@ -35,24 +35,69 @@ async function pbkdf2(password, salt, rounds) {
     });
   });
 }
-export async function hashPassword(password) {
+export async function hashPassword(password, secret, username) {
   if (typeof password !== "string" || password.length < 12 || password.length > 128) throw new Error("Senha inválida.");
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await pbkdf2(password, salt, ITERATIONS);
-  return "pbkdf2-sha256$" + ITERATIONS + "$" + toBase64Url(salt) + "$" + toBase64Url(hash);
+  const salt64=toBase64Url(salt), derived=toBase64Url(hash);
+  return secret && username
+    ? await storeProof(derived,salt64,ITERATIONS,secret,username)
+    : "pbkdf2-sha256$" + ITERATIONS + "$" + salt64 + "$" + derived;
 }
 export async function verifyPassword(password, encoded) {
   if (typeof password !== "string" || password.length > 128 || typeof encoded !== "string") return false;
   const match = encoded.match(/^pbkdf2-sha256\$(\d{6,7})\$([a-zA-Z0-9_-]{22})\$([a-zA-Z0-9_-]{43})$/);
   if (!match) return false;
   const rounds = Number(match[1]);
-  if (rounds < 210000 || rounds > 1000000) return false;
+  if (rounds < 100000 || rounds > 100000) return false;
   const check = await pbkdf2(password, fromBase64Url(match[2]), rounds);
   const expected = fromBase64Url(match[3]);
   let diff = 0;
   for (let i = 0; i < check.length; i++) diff |= check[i] ^ expected[i];
   return diff === 0;
 }
+
+const HASH_PATTERN = /^(pbkdf2-sha256|pbkdf2-hmac)\$(\d{6,7})\$([a-zA-Z0-9_-]{22})\$([a-zA-Z0-9_-]{43})$/;
+export function passwordInfo(encoded) {
+  if(typeof encoded !== "string") return null;
+  const match=encoded.match(HASH_PATTERN);
+  if(!match) return null;
+  const rounds=Number(match[2]);
+  if(!Number.isInteger(rounds)||rounds<100000||rounds>1000000) return null;
+  return {scheme:match[1],rounds,salt:match[3],digest:match[4]};
+}
+function equalBase64(a,b) {
+  let difference=0;
+  const left=fromBase64Url(a),right=fromBase64Url(b);
+  if(left.length!==32||right.length!==32)return false;
+  for(let i=0;i<32;i++)difference|=left[i]^right[i];
+  return difference===0;
+}
+async function macProof(proof,secret,username) {
+  const key=await crypto.subtle.importKey("raw",textEncoder.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const data=textEncoder.encode("financeiro-senha-v1|"+username.toLowerCase()+"|"+proof);
+  return toBase64Url(new Uint8Array(await crypto.subtle.sign("HMAC",key,data)));
+}
+export async function storeProof(proof,salt,rounds,secret,username) {
+  if(typeof proof!=="string"||!/^[a-zA-Z0-9_-]{43}$/.test(proof))throw new Error("Prova de senha inválida.");
+  if(typeof salt!=="string"||!/^[a-zA-Z0-9_-]{22}$/.test(salt))throw new Error("Sal inválido.");
+  if(!Number.isInteger(rounds)||rounds<100000||rounds>1000000)throw new Error("Iterações inválidas.");
+  const verifier=await macProof(proof,secret,username);
+  return "pbkdf2-hmac$"+rounds+"$"+salt+"$"+verifier;
+}
+export async function checkProof(encoded,proof,secret,username) {
+  const info=passwordInfo(encoded);
+  if(!info||typeof proof!=="string"||!/^[a-zA-Z0-9_-]{43}$/.test(proof))return {valid:false,upgrade:null};
+  const candidate=info.scheme==="pbkdf2-hmac" ? await macProof(proof,secret,username) : proof;
+  const valid=equalBase64(candidate,info.digest);
+  return {valid,upgrade:valid&&info.scheme==="pbkdf2-sha256"
+    ? await storeProof(proof,info.salt,info.rounds,secret,username)
+    : null};
+}
+export function makeSalt() {
+  return toBase64Url(crypto.getRandomValues(new Uint8Array(16)));
+}
+
 async function hmacKey(secret) {
   return crypto.subtle.importKey("raw", textEncoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
