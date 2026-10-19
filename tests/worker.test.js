@@ -109,7 +109,7 @@ test("login responde 200 com senha certa e 401 com senha incorreta, sem erro 500
 });
 
 test("pattern HTML de usuário usa regex compatível com a flag v",()=>{
-  const re=new RegExp("[A-Za-z0-9._\\-]{3,50}","v");
+  const re=new RegExp("^[A-Za-z0-9._\\-]{3,50}$","v");
   assert.equal(re.test("joaoldsxyzbr"),true);
   assert.equal(re.test("usuario-com-hifen"),true);
   assert.equal(re.test("invalido espaço"),false);
