@@ -10,7 +10,7 @@ const plusMonths = (key, offset) => {
   return monthKey(new Date(year, month - 1 + offset, 1));
 };
 const formatDate = (iso) => monthText(iso);
-const categories = {
+const initialCategories = {
   expense: ["Moradia", "Alimentação", "Transporte", "Saúde", "Educação", "Cartão", "Assinaturas", "Lazer", "Compras", "Outros"],
   income: ["Salário", "Renda extra", "Reembolso", "Investimentos", "Presentes", "Outros"]
 };
@@ -21,7 +21,9 @@ const state = {
   month: plusMonths(monthKey(new Date()), 1),
   view: "dashboard",
   records: [],
-  editing: null
+  editing: null,
+  editingCategory: null,
+  categories: []
 };
 
 function el(tag, className, value) {
@@ -150,6 +152,108 @@ function renderMetrics(rows) {
   byId("metric-balance").textContent = money(totals.income - totals.expense);
 }
 
+function demoCategories() {
+  return Object.entries(initialCategories).flatMap(([type,names]) =>
+    names.map((name,index)=>({id:"demo-"+type+"-"+index,name,type})));
+}
+function categoryInUse(category) {
+  return state.records.some(record => record.type===category.type && record.category.toLowerCase()===category.name.toLowerCase());
+}
+function renderCategories() {
+  const term=byId("category-search").value.trim().toLocaleLowerCase("pt-BR");
+  const filter=byId("category-type-filter").value;
+  const visible=state.categories.filter(category=>
+    (filter==="all"||category.type===filter) &&
+    category.name.toLocaleLowerCase("pt-BR").includes(term)
+  ).sort((a,b)=>a.type.localeCompare(b.type) || a.name.localeCompare(b.name,"pt-BR"));
+  const tbody=byId("categories-body");
+  tbody.replaceChildren();
+  for(const category of visible){
+    const tr=el("tr"),name=el("td"),type=el("td"),actions=el("td","actions-col");
+    name.append(el("span","item-name",category.name));
+    type.append(el("span","badge type-"+category.type,category.type==="income"?"Entrada":"Saída"));
+    const buttons=el("div","row-actions");
+    buttons.append(
+      actionButton("✎","Editar categoria "+category.name,()=>openCategory(category)),
+      actionButton("×","Excluir categoria "+category.name,()=>removeCategory(category))
+    );
+    actions.append(buttons);
+    tr.append(name,type,actions);
+    tbody.append(tr);
+  }
+  byId("categories-empty").hidden=visible.length>0;
+  byId("categories-count").textContent=visible.length+(visible.length===1?" categoria":" categorias");
+}
+function openCategory(category=null) {
+  state.editingCategory=category ? category.id : null;
+  byId("category-form").reset();
+  byId("category-dialog-title").textContent=category?"Editar categoria":"Nova categoria";
+  byId("category-save").textContent=category?"Salvar alterações":"Salvar categoria";
+  byId("category-name").value=category?.name||"";
+  byId("category-type").value=category?.type||"expense";
+  byId("category-error").textContent="";
+  byId("category-dialog").showModal();
+  byId("category-name").focus();
+}
+async function refreshCategories() {
+  if(state.mode!=="live")return;
+  const result=await request("categories");
+  state.categories=result.categories;
+}
+async function saveCategory(event) {
+  event.preventDefault();
+  const name=byId("category-name").value.trim();
+  const type=byId("category-type").value;
+  if(!name||name.length>40){
+    byId("category-error").textContent="Informe um nome de até 40 caracteres.";return;
+  }
+  const button=byId("category-save");
+  button.disabled=true;
+  byId("category-error").textContent="";
+  try {
+    if(state.mode==="demo") {
+      const duplicate=state.categories.some(item=>item.id!==state.editingCategory &&
+        item.type===type && item.name.toLocaleLowerCase("pt-BR")===name.toLocaleLowerCase("pt-BR"));
+      if(duplicate)throw new Error("Já existe uma categoria com esse nome e tipo.");
+      if(state.editingCategory){
+        const category=state.categories.find(item=>item.id===state.editingCategory);
+        if(!category)throw new Error("Categoria não encontrada.");
+        if(type!==category.type && categoryInUse(category))
+          throw new Error("Categoria em uso. Crie outra para mudar seu tipo.");
+        for(const row of state.records){
+          if(row.type===category.type&&row.category.toLowerCase()===category.name.toLowerCase())row.category=name;
+        }
+        Object.assign(category,{name,type});
+      } else {
+        state.categories.push({id:crypto.randomUUID(),name,type});
+      }
+    } else {
+      const path=state.editingCategory?"categories/"+encodeURIComponent(state.editingCategory):"categories";
+      await request(path,{method:state.editingCategory?"PUT":"POST",body:JSON.stringify({name,type})});
+      await refreshCategories();
+      await reload();
+    }
+    byId("category-dialog").close();
+    render();
+    showToast("Categoria salva com sucesso.");
+  }catch(error){byId("category-error").textContent=error.message;}
+  finally{button.disabled=false;}
+}
+async function removeCategory(category) {
+  if(!window.confirm('Excluir a categoria "'+category.name+'"?'))return;
+  try {
+    if(state.mode==="demo"){
+      if(categoryInUse(category))throw new Error("Categoria em uso. Edite os lançamentos antes de excluí-la.");
+      state.categories=state.categories.filter(item=>item.id!==category.id);
+    }else{
+      await request("categories/"+encodeURIComponent(category.id),{method:"DELETE"});
+      await refreshCategories();
+    }
+    render();
+    showToast("Categoria excluída.");
+  }catch(error){showToast(error.message,true);}
+}
+
 function actionButton(symbol, label, callback) {
   const button = el("button", "", symbol);
   button.type = "button";
@@ -202,9 +306,13 @@ function renderRows(rows) {
 function render() {
   byId("month-picker").value = state.month;
   byId("month-label").textContent = monthText(state.month);
-  byId("page-title").textContent = state.view === "dashboard" ? "Visão geral" : "Lançamentos";
-  byId("transactions-title").textContent = state.view === "dashboard" ? "Lançamentos do mês" : "Todos os lançamentos";
+  byId("page-title").textContent = state.view === "dashboard" ? "Visão geral" : "Categorias";
+  byId("transactions-title").textContent = "Lançamentos do mês";
   document.querySelector(".dashboard-only").hidden = state.view !== "dashboard";
+  document.querySelector(".transactions-panel").hidden = state.view !== "dashboard";
+  byId("categories-panel").hidden = state.view !== "categories";
+  document.querySelector(".period-bar").hidden = state.view !== "dashboard";
+  document.querySelector(".top-add").hidden = state.view !== "dashboard";
   for (const button of document.querySelectorAll("[data-view-button]")) {
     const active = button.dataset.viewButton === state.view;
     button.classList.toggle("active", active);
@@ -215,6 +323,7 @@ function render() {
   const rows = currentRows();
   renderMetrics(rows);
   renderRows(rows);
+  renderCategories();
 }
 
 async function request(path, options = {}) {
@@ -271,16 +380,30 @@ function setMonth(month) {
 function updateCategories(type, selected = "") {
   const select = byId("field-category");
   select.replaceChildren();
-  const choices = categories[type] || categories.expense;
-  for (const option of selected && !choices.includes(selected) ? [...choices, selected] : choices) {
-    const node = el("option", "", option);
-    node.value = option;
-    select.append(node);
+  const choices = state.categories.filter(item=>item.type===type).map(item=>item.name);
+  if(!choices.length){
+    const placeholder=el("option","","Cadastre uma categoria na aba Categorias");
+    placeholder.value="";
+    placeholder.disabled=true;
+    select.append(placeholder);
+    select.value="";
+    return;
   }
-  select.value = selected || choices[0];
+  for (const value of selected && !choices.includes(selected) ? [...choices, selected] : choices) {
+    const option=el("option","",value);
+    option.value=value;
+    select.append(option);
+  }
+  select.value=selected || choices[0];
 }
 
 function openTransaction(row = null) {
+  if(!row && !state.categories.some(item=>item.type==="expense")){
+    state.view="categories";
+    render();
+    showToast("Cadastre uma categoria de saída antes do primeiro lançamento.",true);
+    return;
+  }
   state.editing = row ? row.id : null;
   byId("dialog-title").textContent = row ? "Editar lançamento" : "Novo lançamento";
   byId("save-button").textContent = row ? "Salvar alterações" : "Salvar lançamento";
@@ -367,6 +490,10 @@ function bindEvents() {
   byId("type-filter").addEventListener("change", () => renderRows(currentRows()));
   byId("status-filter").addEventListener("change", () => renderRows(currentRows()));
   byId("field-type").addEventListener("change", (event) => updateCategories(event.target.value));
+  byId("add-category").addEventListener("click",()=>openCategory());
+  byId("category-form").addEventListener("submit",saveCategory);
+  byId("category-search").addEventListener("input",renderCategories);
+  byId("category-type-filter").addEventListener("change",renderCategories);
   byId("transaction-form").addEventListener("submit", saveTransaction);
   byId("password-button").addEventListener("click",()=>{
     byId("password-form").reset();
@@ -394,6 +521,7 @@ function bindEvents() {
     state.token = "";
     state.user = null;
     state.records = [];
+    state.categories = [];
     render();
     showLogin();
   });
@@ -414,6 +542,7 @@ function bindEvents() {
       state.token = result.token;
       state.user = result.user;
       byId("auth-password").value = "";
+      await refreshCategories();
       await reload();
       showApp();
       updateMode();
@@ -437,7 +566,10 @@ async function start() {
     const status = await response.json();
     state.mode=status.configured?"live":"demo";
   } catch {state.mode="demo";}
-  if(state.mode==="demo") state.records=createDemoRecords();
+  if(state.mode==="demo"){
+    state.records=createDemoRecords();
+    state.categories=demoCategories();
+  }
   render();
   if(state.mode==="demo"){
     byId("auth-error").textContent="O servidor real ainda não está configurado.";
