@@ -1,4 +1,4 @@
-import { hashPassword, verifyPassword, validateNewUser, validUsername, issueSession, sessionUserId, verifyAdminToken } from "./auth.js";
+import { hashPassword, validateNewUser, validUsername, issueSession, sessionUserId, verifyAdminToken, passwordInfo, checkProof, makeSalt, storeProof } from "./auth.js";
 
 const MAX_VALUE = 100000000000;
 const headers = {
@@ -86,22 +86,33 @@ async function remove(db, id, userId) {
   if (!result.meta?.changes) throw error(404, "Registro não encontrado.");
   return json({deleted:true});
 }
-async function login(db, request, secret) {
-  const payload = await parseRequest(request);
-  if (!payload || !validUsername(payload.usuario) || typeof payload.senha !== "string" || payload.senha.length > 128) throw error(401, "Usuário ou senha incorretos.");
-  const row = await db.prepare("SELECT id,nome,usuario,senha_hash FROM usuarios WHERE usuario=?").bind(payload.usuario).first();
-  // Mesma quantidade de trabalho com usuário inexistente, reduzindo enumeração por tempo.
-  const fallback = "pbkdf2-sha256$600000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-  const valid = await verifyPassword(payload.senha, row?.senha_hash || fallback);
-  if (!row || !valid) throw error(401, "Usuário ou senha incorretos.");
-  const token = await issueSession(row.id, secret);
-  return json({token, user:{id:row.id,nome:row.nome,usuario:row.usuario}});
+async function loginParams(db, url) {
+  const username=url.searchParams.get("usuario");
+  if(!validUsername(username))throw error(400,"Usuário inválido.");
+  const account=await db.prepare("SELECT senha_hash FROM usuarios WHERE usuario=?").bind(username).first();
+  const info=passwordInfo(account?.senha_hash);
+  // Usuários inexistentes recebem parâmetros plausíveis sem revelar presença da conta.
+  return json({salt:info?.salt || makeSalt(),rounds:info?.rounds || 600000});
 }
-async function createUser(db, request) {
+async function login(db, request, secret) {
+  const body=await parseRequest(request);
+  if(!body||!validUsername(body.usuario)||typeof body.proof!=="string")throw error(401,"Usuário ou senha incorretos.");
+  const row=await db.prepare("SELECT id,nome,usuario,senha_hash FROM usuarios WHERE usuario=?").bind(body.usuario).first();
+  if(!row)throw error(401,"Usuário ou senha incorretos.");
+  const result=await checkProof(row.senha_hash,body.proof,secret,row.usuario);
+  if(!result.valid)throw error(401,"Usuário ou senha incorretos.");
+  if(result.upgrade) {
+    await db.prepare("UPDATE usuarios SET senha_hash=? WHERE id=? AND senha_hash=?")
+      .bind(result.upgrade,row.id,row.senha_hash).run();
+  }
+  const token=await issueSession(row.id,secret);
+  return json({token,user:{id:row.id,nome:row.nome,usuario:row.usuario}});
+}
+async function createUser(db, request, secret) {
   let data;
   try { data = validateNewUser(await parseRequest(request)); }
   catch (e) { throw error(400, e.message); }
-  const hash = await hashPassword(data.senha);
+  const hash = await hashPassword(data.senha,secret,data.usuario);
   try {
     const result = await db.prepare("INSERT INTO usuarios (nome,usuario,senha_hash) VALUES (?,?,?)").bind(data.nome,data.usuario,hash).run();
     return json({created:true,id:result.meta.last_row_id,usuario:data.usuario},201);
@@ -120,16 +131,24 @@ async function getUser(db, request, secret) {
   return user;
 }
 
-async function changePassword(db,request,user){
-  const body=await parseRequest(request);
-  if(!body||typeof body.senha_atual!=="string"||typeof body.nova_senha!=="string")
-    throw error(400,"Informe a senha atual e nova senha.");
-  if(body.nova_senha.length<12||body.nova_senha.length>128)
-    throw error(400,"A nova senha precisa ter 12 a 128 caracteres.");
+async function passwordParams(db,user) {
   const row=await db.prepare("SELECT senha_hash FROM usuarios WHERE id=?").bind(user.id).first();
-  if(!row||!await verifyPassword(body.senha_atual,row.senha_hash))throw error(401,"Senha atual incorreta.");
-  const hash=await hashPassword(body.nova_senha);
-  await db.prepare("UPDATE usuarios SET senha_hash=? WHERE id=?").bind(hash,user.id).run();
+  const info=passwordInfo(row?.senha_hash);
+  if(!info)throw error(409,"A senha desta conta precisa ser redefinida pelo administrador.");
+  return json({salt:info.salt,rounds:info.rounds});
+}
+async function changePassword(db,request,user,secret) {
+  const data=await parseRequest(request);
+  if(!data||typeof data.oldProof!=="string"||typeof data.newProof!=="string")
+    throw error(400,"Credenciais inválidas.");
+  if(!/^[a-zA-Z0-9_-]{22}$/.test(data.newSalt||""))throw error(400,"Sal inválido.");
+  const row=await db.prepare("SELECT senha_hash FROM usuarios WHERE id=?").bind(user.id).first();
+  const checked=await checkProof(row?.senha_hash,data.oldProof,secret,user.usuario);
+  if(!checked.valid)throw error(401,"Senha atual incorreta.");
+  const newHash=await storeProof(data.newProof,data.newSalt,600000,secret,user.usuario);
+  const result=await db.prepare("UPDATE usuarios SET senha_hash=? WHERE id=? AND senha_hash=?")
+    .bind(newHash,user.id,row.senha_hash).run();
+  if(!result.meta?.changes)throw error(409,"A senha mudou; tente novamente.");
   return json({updated:true});
 }
 export default {
@@ -141,14 +160,16 @@ export default {
     try {
       const origin = request.headers.get("origin");
       if (origin && origin !== url.origin) throw error(403,"Origem não autorizada.");
+      if (url.pathname==="/api/login/params" && request.method==="GET") return await loginParams(env.DB,url);
       if (url.pathname==="/api/login" && request.method==="POST") return await login(env.DB,request,env.FINANCEIRO_API_TOKEN);
       if (url.pathname==="/api/admin/users" && request.method==="POST") {
         if (!await verifyAdminToken(request,env.FINANCEIRO_API_TOKEN)) throw error(401,"Credencial administrativa inválida.");
-        return await createUser(env.DB,request);
+        return await createUser(env.DB,request,env.FINANCEIRO_API_TOKEN);
       }
       const user = await getUser(env.DB,request,env.FINANCEIRO_API_TOKEN);
       if (url.pathname==="/api/me" && request.method==="GET") return json({user});
-      if (url.pathname==="/api/me/password" && request.method==="POST") return await changePassword(env.DB,request,user);
+      if (url.pathname==="/api/me/password/params" && request.method==="GET") return await passwordParams(env.DB,user);
+      if (url.pathname==="/api/me/password" && request.method==="POST") return await changePassword(env.DB,request,user,env.FINANCEIRO_API_TOKEN);
       if (url.pathname==="/api/transactions" && request.method==="GET") return await list(env.DB,requiredMonth(url),user.id);
       if (url.pathname==="/api/trends" && request.method==="GET") return await trend(env.DB,requiredMonth(url),user.id);
       if (url.pathname==="/api/transactions" && request.method==="POST") return await create(env.DB,request,user.id);
