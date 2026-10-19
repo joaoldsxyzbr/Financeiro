@@ -110,7 +110,7 @@ function updateMode() {
     byId("password-button").hidden = true;
   } else if (state.mode === "live") {
     notice.className = "notice";
-    notice.textContent = "Dados privados no novo D1 do Financeiro. A chave de acesso permanece apenas nesta aba.";
+    notice.textContent = "Dados privados no D1 do Financeiro. Sua sessão permanece somente nesta aba.";
     byId("sidebar-mode").textContent = state.user ? "Conta: " + state.user.usuario : "Acesso protegido";
     byId("logout-button").hidden = !state.user;
     byId("password-button").hidden = !state.user;

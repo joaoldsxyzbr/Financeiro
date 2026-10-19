@@ -77,3 +77,9 @@ A Cloudflare já possui o Worker `financeiro`, binding `DB` para o D1 correto e 
 O script **não** cadastra nada automaticamente nem altera dados de outros bancos. O cadastro de usuários pelo site permanece fechado (sem autoinscrição pública). O endpoint administrativo de cadastro continua protegido por segredo do Worker.
 
 A Cloudflare faz deploys do Worker `financeiro`; o GitHub Actions independente, em `.github/workflows/ci.yml`, tem apresentado falhas e precisa de investigação antes de considerar o CI aprovado.
+## Correções da tela de login
+
+- Expressão regular do campo **usuário** compatível com a flag `v` do navegador (hífen escapado).
+- Ícone SVG próprio, referenciado no HTML, eliminando a necessidade de carregar um favicon ausente.
+- A verificação de senhas migrou de Web Crypto PBKDF2 para `node:crypto` PBKDF2: no Workers, Web Crypto bloqueia chamadas com mais de 100.000 iterações. O algoritmo, salt e os **600.000 ciclos dos hashes existentes** foram preservados; nenhuma senha foi alterada.
+- Testes do fluxo de login e validação do nome de usuário adicionados. Não considerar CI aprovado nem login real validado até testar a versão publicada.
