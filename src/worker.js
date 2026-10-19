@@ -1,3 +1,4 @@
+import {listCategories,createCategory,updateCategory,deleteCategory,assertTransactionCategory,seedUserCategories} from "./categories.js";
 import { hashPassword, validateNewUser, validUsername, issueSession, sessionUserId, verifyAdminToken, passwordInfo, checkProof, makeSalt, storeProof } from "./auth.js";
 
 const MAX_VALUE = 100000000000;
@@ -70,12 +71,14 @@ async function trend(db, month, userId) {
 }
 async function create(db, request, userId) {
   const x = normalizeTransaction(await parseRequest(request));
+  await assertTransactionCategory(db,userId,x);
   const result = await db.prepare("INSERT INTO registros (data,tipo,descricao,valor,categoria,status,usuario_id) VALUES (?,?,?,?,?,?,?)")
     .bind(x.data,x.tipo,x.descricao,x.valor,x.categoria,x.status,userId).run();
   return json({created:true,id:result.meta.last_row_id},201);
 }
 async function update(db, request, id, userId) {
   const x=normalizeTransaction(await parseRequest(request));
+  await assertTransactionCategory(db,userId,x);
   const result = await db.prepare("UPDATE registros SET data=?,tipo=?,descricao=?,valor=?,categoria=?,status=? WHERE rowid=? AND usuario_id=?")
     .bind(x.data,x.tipo,x.descricao,x.valor,x.categoria,x.status,id,userId).run();
   if (!result.meta?.changes) throw error(404, "Registro não encontrado.");
@@ -115,6 +118,7 @@ async function createUser(db, request, secret) {
   const hash = await hashPassword(data.senha,secret,data.usuario);
   try {
     const result = await db.prepare("INSERT INTO usuarios (nome,usuario,senha_hash) VALUES (?,?,?)").bind(data.nome,data.usuario,hash).run();
+    await seedUserCategories(db,result.meta.last_row_id);
     return json({created:true,id:result.meta.last_row_id,usuario:data.usuario},201);
   } catch (e) {
     if (String(e.message).includes("UNIQUE")) throw error(409, "Nome de usuário já existe.");
@@ -170,6 +174,18 @@ export default {
       if (url.pathname==="/api/me" && request.method==="GET") return json({user});
       if (url.pathname==="/api/me/password/params" && request.method==="GET") return await passwordParams(env.DB,user);
       if (url.pathname==="/api/me/password" && request.method==="POST") return await changePassword(env.DB,request,user,env.FINANCEIRO_API_TOKEN);
+      if(url.pathname==="/api/categories" && request.method==="GET") return json({categories:await listCategories(env.DB,user.id)});
+      if(url.pathname==="/api/categories" && request.method==="POST") {
+        const category=await createCategory(env.DB,user.id,await parseRequest(request));
+        return json({category},201);
+      }
+      const categoryMatch=url.pathname.match(/^\/api\/categories\/([1-9]\d{0,15})$/);
+      if(categoryMatch) {
+        const id=Number(categoryMatch[1]);
+        if(!Number.isSafeInteger(id))throw error(400,"ID inválido.");
+        if(request.method==="PUT")return json({category:await updateCategory(env.DB,user.id,id,await parseRequest(request))});
+        if(request.method==="DELETE"){await deleteCategory(env.DB,user.id,id);return json({deleted:true});}
+      }
       if (url.pathname==="/api/transactions" && request.method==="GET") return await list(env.DB,requiredMonth(url),user.id);
       if (url.pathname==="/api/trends" && request.method==="GET") return await trend(env.DB,requiredMonth(url),user.id);
       if (url.pathname==="/api/transactions" && request.method==="POST") return await create(env.DB,request,user.id);
