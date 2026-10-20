@@ -35,7 +35,7 @@ A segunda aba é **Categorias** (não mais Lançamentos): permite criar, listar,
 5. Cadastre a primeira conta no seu terminal com `node scripts/create-user.js`, ou utilize o endpoint administrativo protegido para outras contas.
 6. Acessar o site com o nome de usuário e a senha individual.
 
-**Sem segredo o Worker bloqueia a API real.** O modo de demonstração não grava nada no D1. Não existe deploy automático configurado. As migrations representam etapas históricas do esquema; **não as reaplique em produção com dados reais sem verificar o estado atual e fazer backup**, especialmente `0003_registros_usuarios.sql`. Para testar: `npm test`, `node --check public/js/app.js` e `node --check src/worker.js`.
+**Sem segredo o Worker bloqueia a API real.** O modo de demonstração não grava nada no D1. As migrations representam etapas históricas do esquema; **não as reaplique em produção com dados reais sem verificar o estado atual e fazer backup**, especialmente `0003_registros_usuarios.sql`. Para testar: `npm test`, `node --check public/js/app.js` e `node --check src/worker.js`.
 
 Consulte [AGENTS.md](AGENTS.md).
 ## Tabela de usuários
@@ -79,7 +79,7 @@ A Cloudflare já possui o Worker `financeiro`, binding `DB` para o D1 correto e 
 
 O script **não** cadastra nada automaticamente nem altera dados de outros bancos. O cadastro de usuários pelo site permanece fechado (sem autoinscrição pública). O endpoint administrativo de cadastro continua protegido por segredo do Worker.
 
-A Cloudflare faz deploys do Worker `financeiro`; o GitHub Actions independente, em `.github/workflows/ci.yml`, tem apresentado falhas e precisa de investigação antes de considerar o CI aprovado.
+A Cloudflare faz deploys do Worker `financeiro` via Workers Builds; o GitHub Actions independente, em `.github/workflows/ci.yml`, tem apresentado falhas e precisa de investigação antes de considerar o CI aprovado.
 ## Correções da tela de login
 
 - Expressão regular do campo **usuário** compatível com a flag `v` do navegador (hífen escapado).
@@ -104,6 +104,13 @@ Cada função tem segredo próprio: `FINANCEIRO_API_TOKEN` autoriza apenas o cad
 - Trocar `SESSION_SECRET` apenas invalida as sessões ativas; basta entrar novamente.
 - `GET /api/health` informa o estado: `configured`, `session_secret`, `password_key` e `rate_limiter`. Use para conferir o deploy publicado.
 - O limite de tentativas é o binding nativo de rate limiting do Workers, sem dependências externas. É deliberadamente aproximado e por localização; para um uso público mais rígido, adicione também uma regra de rate limiting da Cloudflare na frente.
+## Previews de branch (Workers Builds)
+
+Cada branch nova recebe um Preview do Workers Builds (trigger com `npx wrangler preview`). Previews **não herdam** a configuração de produção: o bloco `previews` no `wrangler.jsonc` aponta o binding `DB` para o banco vazio e isolado `financeiro-preview` e define um namespace próprio para o limite de tentativas.
+
+- Sem os segredos aplicados ao Preview, a API responde 503 e o site abre em modo demonstração: os dados reais nunca são expostos nem gravados em branch de teste.
+- Nunca apontar o bloco `previews` para o D1 de produção.
+- Para um Preview funcional com login: aplicar os segredos ao Preview, aplicar as migrations ao `financeiro-preview` e cadastrar um usuário de teste separado.
 ## CRUD de categorias
 
 A tabela `categorias` está no D1 `financeiro` e possui `id`, `usuario_id`, `nome` e `tipo`. O nome é único **por usuário e por tipo**, ignorando diferenças entre letras maiúsculas e minúsculas. A migração `migrations/0004_categorias.sql` não modifica ou exclui lançamentos; aproveita as categorias encontradas nos registros existentes e oferece o catálogo inicial.
