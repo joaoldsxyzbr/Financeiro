@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import worker, { secretsFor } from "../src/worker.js";
 import { checkProof, storeProof, issueSession, sessionUserId } from "../src/auth.js";
 
@@ -51,7 +52,7 @@ test("secretsFor separa funções com fallback seguro",()=>{
   assert.equal(fallback.password,adminToken);
 });
 test("login acima do limite devolve 429",async()=>{
-  const env={DB:dbMock(),FINANCEIRO_API_TOKEN:adminToken,RATE_LIMITER:{limit:async()=>({success:false})}};
+  const env={DB:dbMock(),FINANCEIRO_API_TOKEN:adminToken,LOGIN_RATE_LIMITER:{limit:async()=>({success:false})}};
   const params=await worker.fetch(new Request("https://financeiro.example/api/login/params?usuario=joao"),env);
   assert.equal(params.status,429);
   const login=await worker.fetch(new Request("https://financeiro.example/api/login",{
@@ -70,7 +71,17 @@ test("health informa a configuração de segurança atual",async()=>{
   assert.deepEqual(base,{configured:false,session_secret:false,password_key:false,rate_limiter:false});
   const full=await (await worker.fetch(new Request("https://financeiro.example/api/health"),{
     DB:{},FINANCEIRO_API_TOKEN:adminToken,SESSION_SECRET:sessionSecret,PASSWORD_HMAC_KEY:passwordKey,
-    RATE_LIMITER:{limit:async()=>({success:true})}
+    LOGIN_RATE_LIMITER:{limit:async()=>({success:true})}
   })).json();
   assert.deepEqual(full,{configured:true,session_secret:true,password_key:true,rate_limiter:true});
+});
+
+test("binding de limite no wrangler.jsonc confere com o nome usado no worker",()=>{
+  const config=JSON.parse(readFileSync(new URL("../wrangler.jsonc",import.meta.url),"utf8"));
+  const binding=config.ratelimits?.find(r=>r.name==="LOGIN_RATE_LIMITER");
+  assert.ok(binding,"wrangler.jsonc deve declarar o binding LOGIN_RATE_LIMITER");
+  assert.equal(binding.simple.limit,20);
+  assert.equal(binding.simple.period,60);
+  const workerSrc=readFileSync(new URL("../src/worker.js",import.meta.url),"utf8");
+  assert.ok(workerSrc.includes("env.LOGIN_RATE_LIMITER"),"worker.js deve usar env.LOGIN_RATE_LIMITER");
 });
