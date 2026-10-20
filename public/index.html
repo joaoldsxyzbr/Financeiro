@@ -8,6 +8,9 @@
   <meta name="description" content="Financeiro: controle pessoal de receitas, despesas e planejamento mensal.">
   <title>Financeiro — Meu controle</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="manifest" href="/app.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="stylesheet" href="/styles.css">
   <script type="module" src="/js/app.js"></script>
 </head>
@@ -169,5 +172,12 @@
   <div class="modal-footer"><button type="button" class="subtle-button" data-close="password-dialog">Cancelar</button><button type="submit" class="primary-button">Salvar nova senha</button></div>
 </form></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
