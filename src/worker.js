@@ -63,10 +63,10 @@ export function secretsFor(env) {
 }
 // Limite de tentativas com o binding nativo do Workers. Sem binding ou com erro, permite a requisição (fail-open).
 export async function withinRateLimit(env, request, kind) {
-  if (!env.RATE_LIMITER || typeof env.RATE_LIMITER.limit !== "function") return true;
+  if (!env.LOGIN_RATE_LIMITER || typeof env.LOGIN_RATE_LIMITER.limit !== "function") return true;
   const ip = request.headers.get("cf-connecting-ip") || "sem-ip";
   try {
-    const outcome = await env.RATE_LIMITER.limit({ key: kind + ":" + ip });
+    const outcome = await env.LOGIN_RATE_LIMITER.limit({ key: kind + ":" + ip });
     return outcome?.success !== false;
   } catch { return true; }
 }
@@ -194,7 +194,7 @@ export default {
       configured: requireSecret(env),
       session_secret: validSecret(env.SESSION_SECRET),
       password_key: validSecret(env.PASSWORD_HMAC_KEY),
-      rate_limiter: Boolean(env.RATE_LIMITER && typeof env.RATE_LIMITER.limit === "function")
+      rate_limiter: Boolean(env.LOGIN_RATE_LIMITER && typeof env.LOGIN_RATE_LIMITER.limit === "function")
     });
     if (!requireSecret(env)) return json({error:"Configure o D1 e FINANCEIRO_API_TOKEN para acessar os registros."},503);
     try {
