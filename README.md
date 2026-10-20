@@ -30,11 +30,12 @@ A segunda aba é **Categorias** (não mais Lançamentos): permite criar, listar,
 
 1. A tabela e o binding do novo D1 já estão prontos.
 2. O segredo privado `FINANCEIRO_API_TOKEN` já foi configurado no Worker na Cloudflare. Não incluí-lo no repositório nem compartilhá-lo.
-3. Fazer o deploy do Worker com `npx wrangler deploy` após configurar o segredo.
-4. Cadastre a primeira conta no seu terminal com `node scripts/create-user.js`, ou utilize o endpoint administrativo protegido para outras contas.
-5. Acessar o site com o nome de usuário e a senha individual.
+3. (Recomendado) Separar os segredos: `npx wrangler secret put SESSION_SECRET` e `npx wrangler secret put PASSWORD_HMAC_KEY`, ambos com 32 caracteres aleatórios ou mais. Opcional: sem eles, o Worker continua usando `FINANCEIRO_API_TOKEN` para tudo, como antes.
+4. Fazer o deploy do Worker com `npx wrangler deploy` após configurar os segredos. O deploy também registra o binding nativo de limite de tentativas do Workers.
+5. Cadastre a primeira conta no seu terminal com `node scripts/create-user.js`, ou utilize o endpoint administrativo protegido para outras contas.
+6. Acessar o site com o nome de usuário e a senha individual.
 
-**Sem segredo o Worker bloqueia a API real.** O modo de demonstração não grava nada no D1. Não existe deploy automático configurado. As migrations representam etapas históricas do esquema; **não as reaplique em produção com dados reais sem verificar o estado atual e fazer backup**, especialmente `0003_registros_usuarios.sql`. Para testar: `npm test`, `node --check public/js/app.js` e `node --check src/worker.js`.
+**Sem segredo o Worker bloqueia a API real.** O modo de demonstração não grava nada no D1. As migrations representam etapas históricas do esquema; **não as reaplique em produção com dados reais sem verificar o estado atual e fazer backup**, especialmente `0003_registros_usuarios.sql`. Para testar: `npm test`, `node --check public/js/app.js` e `node --check src/worker.js`.
 
 Consulte [AGENTS.md](AGENTS.md).
 ## Tabela de usuários
@@ -57,7 +58,7 @@ A tabela `registros` possui agora `usuario_id INTEGER NOT NULL REFERENCES usuari
 - Cadastro (somente administrador): `POST /api/admin/users` com Authorization Bearer usando `FINANCEIRO_API_TOKEN` e JSON com `nome`, `usuario` e `senha`.
 - `senha_hash`: PBKDF2-SHA256 com sal exclusivo de 16 bytes e 600.000 iterações. A senha não é armazenada em texto puro.
 - O cadastro público está desabilitado para evitar contas desconhecidas. Para registrar um usuário, use por exemplo um cliente HTTP administrativo protegido; não compartilhe credenciais em conversas ou repositórios.
-- O sistema não possui recuperação de senha, autenticação multifator ou limitação de tentativas de login embutida. Configure rate limiting na Cloudflare antes de uso público.
+- O sistema não possui recuperação de senha nem autenticação multifator. O limite de tentativas usa o binding nativo de rate limiting do Workers (`ratelimits` no `wrangler.jsonc`): 20 requisições por minuto por IP em `/api/login/params`, `/api/login` e `/api/admin/users`, devolvendo 429 quando excedido. O contador é aproximado (por localização da Cloudflare) e, se o binding falhar ou não existir, o login continua funcionando (fail-open).
 - Não é necessário passar `usuario_id` do navegador: ele é sempre obtido da sessão. A troca manual de IDs de lançamentos não permite acessar registros de outra conta.
 - A migração `0003_registros_usuarios.sql` foi aplicada enquanto `registros` estava vazia. A versão no repositório possui proteção para bloquear execução se houver registros. Faça backup antes de migrações.
 
@@ -78,13 +79,13 @@ A Cloudflare já possui o Worker `financeiro`, binding `DB` para o D1 correto e 
 
 O script **não** cadastra nada automaticamente nem altera dados de outros bancos. O cadastro de usuários pelo site permanece fechado (sem autoinscrição pública). O endpoint administrativo de cadastro continua protegido por segredo do Worker.
 
-A Cloudflare faz deploys do Worker `financeiro`; o GitHub Actions independente, em `.github/workflows/ci.yml`, tem apresentado falhas e precisa de investigação antes de considerar o CI aprovado.
+A Cloudflare faz deploys do Worker `financeiro` via Workers Builds; o GitHub Actions independente, em `.github/workflows/ci.yml`, valida a branch em cada push e pull request (workflow "Validar Financeiro").
 ## Correções da tela de login
 
 - Expressão regular do campo **usuário** compatível com a flag `v` do navegador (hífen escapado).
 - Ícone SVG próprio, referenciado no HTML, eliminando a necessidade de carregar um favicon ausente.
 - A verificação de senhas migrou de Web Crypto PBKDF2 para `node:crypto` PBKDF2: no Workers, Web Crypto bloqueia chamadas com mais de 100.000 iterações. O algoritmo, salt e os **600.000 ciclos dos hashes existentes** foram preservados; nenhuma senha foi alterada.
-- Testes do fluxo de login e validação do nome de usuário adicionados. Não considerar CI aprovado nem login real validado até testar a versão publicada.
+- Testes do fluxo de login e validação do nome de usuário adicionados. Não considerar login real validado até testar a versão publicada.
 ## Login compatível com Cloudflare Workers (outubro/2026)
 
 A Cloudflare limita **cada chamada PBKDF2** a 100.000 iterações, inclusive por `node:crypto` no runtime publicado. Por isso, o login agora busca apenas sal e número de iterações da conta, deriva o segredo no **Web Crypto do navegador** e envia a prova por HTTPS. O Worker valida com comparação em tempo constante, sem recalcular PBKDF2 acima do limite.
@@ -93,8 +94,23 @@ A Cloudflare limita **cada chamada PBKDF2** a 100.000 iterações, inclusive por
 - Hashes criados pela API administrativa usam 100.000 iterações de PBKDF2 na Cloudflare e verificador com HMAC privado; a interface exige senha de no mínimo 12 caracteres na alteração.
 - A alteração de senha também deriva o PBKDF2 no navegador; o servidor verifica a prova da senha anterior, sem receber senhas em texto puro.
 - Nunca persistir prova de senha, hash de autenticação ou token de sessão no armazenamento do navegador; manter apenas a sessão enquanto a aba estiver aberta.
-- Não rotacionar `FINANCEIRO_API_TOKEN` sem plano de migração dos verificadores HMAC, pois o segredo também protege os hashes armazenados.
+- Com `PASSWORD_HMAC_KEY` configurado, os verificadores antigos migram sozinhos no próximo login de cada conta; depois disso `FINANCEIRO_API_TOKEN` pode ser rotacionado sem afetar o login. Sem a chave nova, a rotação do token continua exigindo migração controlada.
 - A autenticação ainda precisa ser exercitada no Worker publicado; testes de Node.js e Wrangler não comprovam o comportamento do edge.
+## Segredos separados e limite de tentativas
+
+Cada função tem segredo próprio: `FINANCEIRO_API_TOKEN` autoriza apenas o cadastro administrativo, `SESSION_SECRET` assina as sessões e `PASSWORD_HMAC_KEY` protege os verificadores de senha com HMAC. Sem os dois novos segredos, o Worker usa `FINANCEIRO_API_TOKEN` para tudo, comportamento igual ao anterior; nada quebra na atualização.
+
+- Verificadores `pbkdf2-hmac` criados com a chave antiga continuam válidos: no primeiro login com `PASSWORD_HMAC_KEY` configurado, cada verificador é regravado com a chave nova, na mesma operação condicional já usada pela migração dos hashes PBKDF2.
+- Trocar `SESSION_SECRET` apenas invalida as sessões ativas; basta entrar novamente.
+- `GET /api/health` informa o estado: `configured`, `session_secret`, `password_key` e `rate_limiter`. Use para conferir o deploy publicado.
+- O limite de tentativas é o binding nativo de rate limiting do Workers, sem dependências externas. É deliberadamente aproximado e por localização; para um uso público mais rígido, adicione também uma regra de rate limiting da Cloudflare na frente.
+## Previews de branch (Workers Builds)
+
+Cada branch nova recebe um Preview do Workers Builds (trigger com `npx wrangler preview`). Previews **não herdam** a configuração de produção: o bloco `previews` no `wrangler.jsonc` aponta o binding `DB` para o banco vazio e isolado `financeiro-preview` e define um namespace próprio para o limite de tentativas.
+
+- Sem os segredos aplicados ao Preview, a API responde 503 e o site abre em modo demonstração: os dados reais nunca são expostos nem gravados em branch de teste.
+- Nunca apontar o bloco `previews` para o D1 de produção.
+- Para um Preview funcional com login: aplicar os segredos ao Preview, aplicar as migrations ao `financeiro-preview` e cadastrar um usuário de teste separado.
 ## CRUD de categorias
 
 A tabela `categorias` está no D1 `financeiro` e possui `id`, `usuario_id`, `nome` e `tipo`. O nome é único **por usuário e por tipo**, ignorando diferenças entre letras maiúsculas e minúsculas. A migração `migrations/0004_categorias.sql` não modifica ou exclui lançamentos; aproveita as categorias encontradas nos registros existentes e oferece o catálogo inicial.

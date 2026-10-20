@@ -85,14 +85,20 @@ export async function storeProof(proof,salt,rounds,secret,username) {
   const verifier=await macProof(proof,secret,username);
   return "pbkdf2-hmac$"+rounds+"$"+salt+"$"+verifier;
 }
-export async function checkProof(encoded,proof,secret,username) {
+// Verifica a prova contra a chave ativa (PASSWORD_HMAC_KEY) e, se preciso, contra a
+// chave antiga (FINANCEIRO_API_TOKEN). Verificadores antigos migram no próximo login.
+export async function checkProof(encoded,proof,passwordKey,legacyKey,username) {
   const info=passwordInfo(encoded);
   if(!info||typeof proof!=="string"||!/^[a-zA-Z0-9_-]{43}$/.test(proof))return {valid:false,upgrade:null};
-  const candidate=info.scheme==="pbkdf2-hmac" ? await macProof(proof,secret,username) : proof;
-  const valid=equalBase64(candidate,info.digest);
-  return {valid,upgrade:valid&&info.scheme==="pbkdf2-sha256"
-    ? await storeProof(proof,info.salt,info.rounds,secret,username)
-    : null};
+  if(info.scheme==="pbkdf2-sha256") {
+    const valid=equalBase64(proof,info.digest);
+    return {valid,upgrade:valid?await storeProof(proof,info.salt,info.rounds,passwordKey,username):null};
+  }
+  if(equalBase64(await macProof(proof,passwordKey,username),info.digest))
+    return {valid:true,upgrade:null};
+  if(legacyKey&&legacyKey!==passwordKey&&equalBase64(await macProof(proof,legacyKey,username),info.digest))
+    return {valid:true,upgrade:await storeProof(proof,info.salt,info.rounds,passwordKey,username)};
+  return {valid:false,upgrade:null};
 }
 export function makeSalt() {
   return toBase64Url(crypto.getRandomValues(new Uint8Array(16)));

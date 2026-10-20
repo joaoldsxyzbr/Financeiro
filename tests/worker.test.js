@@ -29,7 +29,7 @@ test("sessão é assinada e rejeita alterações",async()=>{
 });
 test("API é fechada sem configuração",async()=>{
   const health=await worker.fetch(new Request("https://financeiro.example/api/health"),{DB:{}});
-  assert.deepEqual(await health.json(),{configured:false});
+  assert.deepEqual(await health.json(),{configured:false,session_secret:false,password_key:false,rate_limiter:false});
   const data=await worker.fetch(new Request("https://financeiro.example/api/transactions?month=2026-11"),{DB:{}});
   assert.equal(data.status,503);
 });

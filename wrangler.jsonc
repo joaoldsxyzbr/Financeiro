@@ -17,5 +17,28 @@
       "database_id": "66379719-dc22-4e1f-9645-ae5a52ff43af",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  "ratelimits": [
+    {
+      "name": "LOGIN_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 }
+    }
+  ],
+  "previews": {
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "financeiro-preview",
+        "database_id": "e1d55d7b-defe-437a-b8d3-dfd60145d449"
+      }
+    ],
+    "ratelimits": [
+      {
+        "name": "LOGIN_RATE_LIMITER",
+        "namespace_id": "2001",
+        "simple": { "limit": 20, "period": 60 }
+      }
+    ]
+  }
 }
