@@ -1,4 +1,5 @@
 import {listCategories,createCategory,updateCategory,deleteCategory,assertTransactionCategory,seedUserCategories} from "./categories.js";
+import { iconPng } from "./pwa-icons.js";
 import { hashPassword, validateNewUser, validUsername, issueSession, sessionUserId, verifyAdminToken, passwordInfo, checkProof, makeSalt, storeProof } from "./auth.js";
 
 const MAX_VALUE = 100000000000;
@@ -158,6 +159,16 @@ async function changePassword(db,request,user,secret) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // Ícones PNG são públicos e independem do D1 e da autenticação.
+    const iconMatch = url.pathname.match(/^\/icons\/icon-(192|512)\.png$/);
+    if (iconMatch && request.method === "GET") {
+      const size = Number(iconMatch[1]);
+      return new Response(await iconPng(size), {headers:{
+        "Content-Type":"image/png",
+        "Cache-Control":"public, max-age=604800",
+        "X-Content-Type-Options":"nosniff"
+      }});
+    }
     if (!url.pathname.startsWith("/api/")) return env.ASSETS ? env.ASSETS.fetch(request) : new Response("Não encontrado",{status:404});
     if (url.pathname === "/api/health" && request.method==="GET") return json({configured:requireSecret(env)});
     if (!requireSecret(env)) return json({error:"Configure o D1 e FINANCEIRO_API_TOKEN para acessar os registros."},503);

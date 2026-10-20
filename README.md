@@ -108,3 +108,10 @@ Todas as rotas abaixo exigem autenticação individual:
 A edição de nome também atualiza os nomes de categoria dos lançamentos existentes **do mesmo usuário e tipo**, na mesma operação transacional. Se a categoria for usada, não é permitido mudar seu tipo. Os lançamentos validam no servidor se a categoria pertence ao usuário e ao tipo escolhido. O valor financeiro, a data e o status dos lançamentos são preservados.
 
 Categorias de **entrada** e de **saída** são independentes, inclusive quando têm o mesmo nome. Usuários novos criados pela API administrativa recebem as categorias iniciais; outras contas podem adicionar as suas no painel.
+## Instalação como aplicativo (PWA)
+
+O Financeiro tem manifesto, ícones PNG nativos de 192 e 512 pixels, suporte à instalação no Android, iOS e desktop, e service worker sem bibliotecas externas. O navegador precisa acessar o site em HTTPS (ou localhost no desenvolvimento). No celular, use o menu do navegador para instalar/adicionar à tela inicial.
+
+**Privacidade:** apenas CSS, JavaScript e outros arquivos públicos podem ser armazenados pelo service worker. Requisições de `/api/*`, lançamentos financeiros, tokens e senhas nunca são armazenados em cache. Se a internet estiver indisponível, o PWA exibe uma tela explicativa; ele **não oferece acesso aos dados financeiros offline**. Ao reabrir, será necessário entrar novamente, pois a sessão fica na memória da aba.
+
+Arquivos: `public/app.webmanifest`, `public/sw.js`, `public/offline.html` e `src/pwa-icons.js`. Ao alterar arquivos públicos precacheados, atualizar a versão `CACHE` em `public/sw.js`. Verifique antes do deploy com `npm test` e instale o PWA em um navegador real para validar o fluxo.
