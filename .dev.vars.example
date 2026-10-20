@@ -1,3 +1,5 @@
-# Copie para .dev.vars e substitua a chave por valor aleatório privado.
-# A chave precisa ter pelo menos 32 caracteres.
+# Copie para .dev.vars e substitua as chaves por valores aleatórios privados.
+# Cada chave precisa ter pelo menos 32 caracteres.
 FINANCEIRO_API_TOKEN="SUBSTITUA"
+SESSION_SECRET="SUBSTITUA"
+PASSWORD_HMAC_KEY="SUBSTITUA"

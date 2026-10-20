@@ -50,6 +50,26 @@ function requiredMonth(url) {
 function requireSecret(env) {
   return Boolean(env.DB && typeof env.FINANCEIRO_API_TOKEN === "string" && env.FINANCEIRO_API_TOKEN.length >= 32);
 }
+const validSecret = value => typeof value === "string" && value.length >= 32;
+// Segredos separados por finalidade. Sem os novos segredos, vale o FINANCEIRO_API_TOKEN (compatibilidade com o deploy atual).
+export function secretsFor(env) {
+  const admin = env.FINANCEIRO_API_TOKEN;
+  return {
+    admin,
+    session: validSecret(env.SESSION_SECRET) ? env.SESSION_SECRET : admin,
+    password: validSecret(env.PASSWORD_HMAC_KEY) ? env.PASSWORD_HMAC_KEY : admin,
+    legacyPassword: admin
+  };
+}
+// Limite de tentativas com o binding nativo do Workers. Sem binding ou com erro, permite a requisição (fail-open).
+export async function withinRateLimit(env, request, kind) {
+  if (!env.RATE_LIMITER || typeof env.RATE_LIMITER.limit !== "function") return true;
+  const ip = request.headers.get("cf-connecting-ip") || "sem-ip";
+  try {
+    const outcome = await env.RATE_LIMITER.limit({ key: kind + ":" + ip });
+    return outcome?.success !== false;
+  } catch { return true; }
+}
 
 const select = "SELECT rowid AS id, data AS date, descricao AS description, CASE WHEN tipo='entrada' THEN 'income' ELSE 'expense' END AS type, valor AS amount_cents, categoria AS category, CASE WHEN status='pago' THEN 'paid' ELSE 'pending' END AS status FROM registros";
 
@@ -66,7 +86,7 @@ async function trend(db, month, userId) {
   const map = new Map(months.map(item=>[item.month,item]));
   for (const item of result.results) {
     const monthRow = map.get(item.month);
-    if (monthRow) {monthRow.income_cents=item.income_cents||0; monthRow.expense_cents=item.expense_cents||0;}
+    if (monthRow) {monthRow.income_cents=item.income_cents||0;monthRow.expense_cents=item.expense_cents||0;}
   }
   return json({months});
 }
@@ -98,25 +118,25 @@ async function loginParams(db, url) {
   // Usuários inexistentes recebem parâmetros plausíveis sem revelar presença da conta.
   return json({salt:info?.salt || makeSalt(),rounds:info?.rounds || 600000});
 }
-async function login(db, request, secret) {
+async function login(db, request, s) {
   const body=await parseRequest(request);
   if(!body||!validUsername(body.usuario)||typeof body.proof!=="string")throw error(401,"Usuário ou senha incorretos.");
   const row=await db.prepare("SELECT id,nome,usuario,senha_hash FROM usuarios WHERE usuario=?").bind(body.usuario).first();
   if(!row)throw error(401,"Usuário ou senha incorretos.");
-  const result=await checkProof(row.senha_hash,body.proof,secret,row.usuario);
+  const result=await checkProof(row.senha_hash,body.proof,s.password,s.legacyPassword,row.usuario);
   if(!result.valid)throw error(401,"Usuário ou senha incorretos.");
   if(result.upgrade) {
     await db.prepare("UPDATE usuarios SET senha_hash=? WHERE id=? AND senha_hash=?")
       .bind(result.upgrade,row.id,row.senha_hash).run();
   }
-  const token=await issueSession(row.id,secret);
+  const token=await issueSession(row.id,s.session);
   return json({token,user:{id:row.id,nome:row.nome,usuario:row.usuario}});
 }
-async function createUser(db, request, secret) {
+async function createUser(db, request, s) {
   let data;
   try { data = validateNewUser(await parseRequest(request)); }
   catch (e) { throw error(400, e.message); }
-  const hash = await hashPassword(data.senha,secret,data.usuario);
+  const hash = await hashPassword(data.senha,s.password,data.usuario);
   try {
     const result = await db.prepare("INSERT INTO usuarios (nome,usuario,senha_hash) VALUES (?,?,?)").bind(data.nome,data.usuario,hash).run();
     await seedUserCategories(db,result.meta.last_row_id);
@@ -142,15 +162,15 @@ async function passwordParams(db,user) {
   if(!info)throw error(409,"A senha desta conta precisa ser redefinida pelo administrador.");
   return json({salt:info.salt,rounds:info.rounds});
 }
-async function changePassword(db,request,user,secret) {
+async function changePassword(db,request,user,s) {
   const data=await parseRequest(request);
   if(!data||typeof data.oldProof!=="string"||typeof data.newProof!=="string")
     throw error(400,"Credenciais inválidas.");
   if(!/^[a-zA-Z0-9_-]{22}$/.test(data.newSalt||""))throw error(400,"Sal inválido.");
   const row=await db.prepare("SELECT senha_hash FROM usuarios WHERE id=?").bind(user.id).first();
-  const checked=await checkProof(row?.senha_hash,data.oldProof,secret,user.usuario);
+  const checked=await checkProof(row?.senha_hash,data.oldProof,s.password,s.legacyPassword,user.usuario);
   if(!checked.valid)throw error(401,"Senha atual incorreta.");
-  const newHash=await storeProof(data.newProof,data.newSalt,600000,secret,user.usuario);
+  const newHash=await storeProof(data.newProof,data.newSalt,600000,s.password,user.usuario);
   const result=await db.prepare("UPDATE usuarios SET senha_hash=? WHERE id=? AND senha_hash=?")
     .bind(newHash,user.id,row.senha_hash).run();
   if(!result.meta?.changes)throw error(409,"A senha mudou; tente novamente.");
@@ -170,21 +190,34 @@ export default {
       }});
     }
     if (!url.pathname.startsWith("/api/")) return env.ASSETS ? env.ASSETS.fetch(request) : new Response("Não encontrado",{status:404});
-    if (url.pathname === "/api/health" && request.method==="GET") return json({configured:requireSecret(env)});
+    if (url.pathname === "/api/health" && request.method==="GET") return json({
+      configured: requireSecret(env),
+      session_secret: validSecret(env.SESSION_SECRET),
+      password_key: validSecret(env.PASSWORD_HMAC_KEY),
+      rate_limiter: Boolean(env.RATE_LIMITER && typeof env.RATE_LIMITER.limit === "function")
+    });
     if (!requireSecret(env)) return json({error:"Configure o D1 e FINANCEIRO_API_TOKEN para acessar os registros."},503);
     try {
       const origin = request.headers.get("origin");
       if (origin && origin !== url.origin) throw error(403,"Origem não autorizada.");
-      if (url.pathname==="/api/login/params" && request.method==="GET") return await loginParams(env.DB,url);
-      if (url.pathname==="/api/login" && request.method==="POST") return await login(env.DB,request,env.FINANCEIRO_API_TOKEN);
-      if (url.pathname==="/api/admin/users" && request.method==="POST") {
-        if (!await verifyAdminToken(request,env.FINANCEIRO_API_TOKEN)) throw error(401,"Credencial administrativa inválida.");
-        return await createUser(env.DB,request,env.FINANCEIRO_API_TOKEN);
+      const s = secretsFor(env);
+      if (url.pathname==="/api/login/params" && request.method==="GET") {
+        if (!await withinRateLimit(env,request,"login-params")) throw error(429,"Muitas tentativas em pouco tempo. Aguarde um minuto.");
+        return await loginParams(env.DB,url);
       }
-      const user = await getUser(env.DB,request,env.FINANCEIRO_API_TOKEN);
+      if (url.pathname==="/api/login" && request.method==="POST") {
+        if (!await withinRateLimit(env,request,"login")) throw error(429,"Muitas tentativas em pouco tempo. Aguarde um minuto.");
+        return await login(env.DB,request,s);
+      }
+      if (url.pathname==="/api/admin/users" && request.method==="POST") {
+        if (!await withinRateLimit(env,request,"admin")) throw error(429,"Muitas tentativas em pouco tempo. Aguarde um minuto.");
+        if (!await verifyAdminToken(request,s.admin)) throw error(401,"Credencial administrativa inválida.");
+        return await createUser(env.DB,request,s);
+      }
+      const user = await getUser(env.DB,request,s.session);
       if (url.pathname==="/api/me" && request.method==="GET") return json({user});
       if (url.pathname==="/api/me/password/params" && request.method==="GET") return await passwordParams(env.DB,user);
-      if (url.pathname==="/api/me/password" && request.method==="POST") return await changePassword(env.DB,request,user,env.FINANCEIRO_API_TOKEN);
+      if (url.pathname==="/api/me/password" && request.method==="POST") return await changePassword(env.DB,request,user,s);
       if(url.pathname==="/api/categories" && request.method==="GET") return json({categories:await listCategories(env.DB,user.id)});
       if(url.pathname==="/api/categories" && request.method==="POST") {
         const category=await createCategory(env.DB,user.id,await parseRequest(request));
