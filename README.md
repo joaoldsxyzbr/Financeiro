@@ -79,13 +79,13 @@ A Cloudflare já possui o Worker `financeiro`, binding `DB` para o D1 correto e 
 
 O script **não** cadastra nada automaticamente nem altera dados de outros bancos. O cadastro de usuários pelo site permanece fechado (sem autoinscrição pública). O endpoint administrativo de cadastro continua protegido por segredo do Worker.
 
-A Cloudflare faz deploys do Worker `financeiro` via Workers Builds; o GitHub Actions independente, em `.github/workflows/ci.yml`, tem apresentado falhas e precisa de investigação antes de considerar o CI aprovado.
+A Cloudflare faz deploys do Worker `financeiro` via Workers Builds; o GitHub Actions independente, em `.github/workflows/ci.yml`, valida a branch em cada push e pull request (workflow "Validar Financeiro").
 ## Correções da tela de login
 
 - Expressão regular do campo **usuário** compatível com a flag `v` do navegador (hífen escapado).
 - Ícone SVG próprio, referenciado no HTML, eliminando a necessidade de carregar um favicon ausente.
 - A verificação de senhas migrou de Web Crypto PBKDF2 para `node:crypto` PBKDF2: no Workers, Web Crypto bloqueia chamadas com mais de 100.000 iterações. O algoritmo, salt e os **600.000 ciclos dos hashes existentes** foram preservados; nenhuma senha foi alterada.
-- Testes do fluxo de login e validação do nome de usuário adicionados. Não considerar CI aprovado nem login real validado até testar a versão publicada.
+- Testes do fluxo de login e validação do nome de usuário adicionados. Não considerar login real validado até testar a versão publicada.
 ## Login compatível com Cloudflare Workers (outubro/2026)
 
 A Cloudflare limita **cada chamada PBKDF2** a 100.000 iterações, inclusive por `node:crypto` no runtime publicado. Por isso, o login agora busca apenas sal e número de iterações da conta, deriva o segredo no **Web Crypto do navegador** e envia a prova por HTTPS. O Worker valida com comparação em tempo constante, sem recalcular PBKDF2 acima do limite.
